@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravity Duel</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        :root {
+            --bg-color: #0d0f12;
+            --text-color: #e0e0e0;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Press Start 2P', monospace;
+            text-align: center;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        h1 {
+            font-size: clamp(1rem, 3vw, 2.5rem);
+            margin-bottom: 20px;
+            color: #ffffff;
+            text-shadow: 0 0 5px #ffffff, 0 0 10px #ffffff;
+        }
+
+        #game-ui-wrapper {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 20px;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        #gameContainer {
+            position: relative;
+            border: 5px solid #ffffff;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            background: linear-gradient(135deg, #1a1c20, #2a2c30);
+            width: clamp(350px, 95vw, 950px);
+            aspect-ratio: 16 / 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+        }
+
+        #messageBox {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 40px;
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 3px solid #ffffff;
+            border-radius: 10px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+            z-index: 10;
+        }
+        
+        #messageText {
+            font-size: clamp(1rem, 3vw, 1.5rem);
+            color: #ffffff;
+            text-shadow: 0 0 5px #ffffff;
+            white-space: pre-wrap;
+        }
+
+        .action-button {
+            padding: 10px 20px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(0.8rem, 2vw, 1.2rem);
+            background-color: #ffffff;
+            color: #0d0f12;
+            border: 2px solid #ffffff;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 0 10px #ffffff;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .action-button:hover {
+            transform: scale(1.1);
+            background-color: #0d0f12;
+            color: #ffffff;
+        }
+
+        .instructions {
+            margin-top: 20px;
+            font-size: clamp(0.7rem, 1.5vw, 1rem);
+            color: var(--text-color);
+            text-align: center;
+            max-width: 80vw;
+        }
+        
+        .player-ui {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .ammo-display {
+            width: 30px;
+            height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 10px 5px;
+            border-radius: 5px;
+            background-color: rgba(0, 0, 0, 0.4);
+            box-shadow: inset 0 0 10px rgba(255, 255, 2.5, 0.2);
+            gap: 10px;
+            border-style: solid;
+            border-width: 2px;
+        }
+        #ammo-display-p1 {
+            border-color: #00ff00;
+        }
+        #ammo-display-p2 {
+            border-color: #ff0000;
+        }
+        .missile-icons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+        .missile-icon {
+            width: 10px;
+            height: 20px;
+            background-color: #e0e0e0;
+            position: relative;
+            border-radius: 2px;
+        }
+        .missile-icon::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-bottom: 5px solid #e0e0e0;
+        }
+
+        .score-display {
+            font-size: clamp(1rem, 2.5vw, 1.8rem);
+            text-shadow: 0 0 5px #ffffff;
+        }
+        #score-p1 {
+            color: #00ff00;
+        }
+        #score-p2 {
+            color: #ff0000;
+        }
+
+        .fuel-display {
+            width: 30px;
+            height: 400px;
+            padding: 5px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 2px;
+            background-color: rgba(0, 0, 0, 0.4);
+            border-radius: 5px;
+            box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.2);
+            border: 2px solid;
+        }
+
+        #fuel-display-p1 {
+            border-color: #00ff00;
+        }
+
+        #fuel-display-p2 {
+            border-color: #ff0000;
+        }
+
+        .fuel-line {
+            width: 100%;
+            height: 5px;
+            background-color: #fff;
+            box-shadow: 0 0 5px #fff;
+        }
+        
+        .ready-button-container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 15px;
+            gap: 10px;
+        }
+
+        .player-ready-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            width: 50%;
+        }
+
+        .action-button {
+            width: 100%;
+            box-sizing: border-box;
+            min-width: 150px;
+        }
+
+        .ready-label {
+            font-size: 1rem;
+            margin-bottom: 5px;
+        }
+        
+        @media (max-width: 600px) {
+            .instructions {
+                font-size: 0.7rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Gravity Duel</h1>
+    <div id="game-ui-wrapper">
+        <div id="player1-ui" class="player-ui">
+            <span id="score-p1" class="score-display">0</span>
+            <div id="ammo-display-p1" class="ammo-display">
+                <div id="missile-icons-p1" class="missile-icons"></div>
+            </div>
+            <div id="fuel-display-p1" class="fuel-display"></div>
+        </div>
+        <div id="gameContainer">
+            <canvas id="gameCanvas"></canvas>
+            <div id="messageBox">
+                <div id="messageText">Welcome!</div>
+                <div class="ready-button-container">
+                    <div class="player-ready-buttons">
+                        <div class="ready-label" style="color: #00ff00;">Player 1</div>
+                        <button id="readyP1Button" class="action-button">Ready Player</button>
+                        <button id="readyBotP1Button" class="action-button">Ready Bot</button>
+                    </div>
+                    <div class="player-ready-buttons">
+                        <div class="ready-label" style="color: #ff0000;">Player 2</div>
+                        <button id="readyP2Button" class="action-button">Ready Player</button>
+                        <button id="readyBotP2Button" class="action-button">Ready Bot</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="player2-ui" class="player-ui">
+            <span id="score-p2" class="score-display">0</span>
+            <div id="ammo-display-p2" class="ammo-display">
+                <div id="missile-icons-p2" class="missile-icons"></div>
+            </div>
+            <div id="fuel-display-p2" class="fuel-display"></div>
+        </div>
+    </div>
+    <div class="instructions">
+        Player 1 (Green): W, A, D Keys to move, S to shoot.
+        <br>
+        Player 2 (Red): Arrow Keys to move, Down Arrow to shoot.
+        <br>
+        Press Y to abort to the start screen.
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const messageBox = document.getElementById('messageBox');
+            const messageText = document.getElementById('messageText');
+            const readyP1Button = document.getElementById('readyP1Button');
+            const readyBotP1Button = document.getElementById('readyBotP1Button');
+            const readyP2Button = document.getElementById('readyP2Button');
+            const readyBotP2Button = document.getElementById('readyBotP2Button');
+            const scoreP1 = document.getElementById('score-p1');
+            const scoreP2 = document.getElementById('score-p2');
+            const fuelDisplayP1 = document.getElementById('fuel-display-p1');
+            const fuelDisplayP2 = document.getElementById('fuel-display-p2');
+
+            let isGameRunning = false;
+            let animationFrameId;
+
+            let player1Ready = false;
+            let player2Ready = false;
+            let isPlayer1Bot = false;
+            let isPlayer2Bot = false;
+
+            const WINNING_SCORE = 5;
+            const MAX_FUEL_SECONDS = 10;
+            const TOTAL_FUEL_LINES = 57;
+            const FUEL_PER_FRAME = (1 / (MAX_FUEL_SECONDS * 60)) * 2;
+            const MISSILE_LIFETIME = 30000;
+            const NO_FUEL_TIMEOUT = 30000;
+            const MISSILE_COLLISION_GRACE_PERIOD = 1000;
+            
+            let player1Score = 0;
+            let player2Score = 0;
+            const initialDistance = 100;
+            let noFuelTimer = null;
+
+            const planet = {
+                x: 0,
+                y: 0,
+                radius: 30,
+                color: '#ffffff'
+            };
+
+            const player1Ship = {
+                x: 0,
+                y: 0,
+                width: 10,
+                height: 20,
+                angle: 0,
+                thrust: 0,
+                rotationSpeed: 0.025,
+                velocityX: 0,
+                velocityY: 0,
+                color: '#00ff00',
+                destroyed: false,
+                missiles: 3,
+                invulnerable: false,
+                hasBeenPenalized: false,
+                fuel: MAX_FUEL_SECONDS
+            };
+
+            const player2Ship = {
+                x: 0,
+                y: 0,
+                width: 10,
+                height: 20,
+                angle: Math.PI,
+                thrust: 0,
+                rotationSpeed: 0.025,
+                velocityX: 0,
+                velocityY: 0,
+                color: '#ff0000',
+                destroyed: false,
+                missiles: 3,
+                invulnerable: false,
+                hasBeenPenalized: false,
+                fuel: MAX_FUEL_SECONDS
+            };
+
+            let missiles = [];
+            let explosions = [];
+
+            let keys = {};
+            
+            document.addEventListener('keydown', (e) => {
+                if (isGameRunning) {
+                    keys[e.key.toLowerCase()] = true;
+                }
+                
+                if (messageBox.style.display === 'flex') {
+                    if (e.key.toLowerCase() === 's' && !player1Ready) {
+                        e.preventDefault();
+                        readyP1Button.click();
+                    }
+                    if (e.key === 'ArrowDown' && !player2Ready) {
+                        e.preventDefault();
+                        readyP2Button.click();
+                    }
+                }
+            });
+            document.addEventListener('keyup', (e) => {
+                keys[e.key.toLowerCase()] = false;
+            });
+
+            function updateAmmoDisplay() {
+                const p1Container = document.getElementById('missile-icons-p1');
+                const p2Container = document.getElementById('missile-icons-p2');
+
+                p1Container.innerHTML = '';
+                for (let i = 0; i < player1Ship.missiles; i++) {
+                    const missileDiv = document.createElement('div');
+                    missileDiv.className = 'missile-icon';
+                    p1Container.appendChild(missileDiv);
+                }
+
+                p2Container.innerHTML = '';
+                for (let i = 0; i < player2Ship.missiles; i++) {
+                    const missileDiv = document.createElement('div');
+                    missileDiv.className = 'missile-icon';
+                    p2Container.appendChild(missileDiv);
+                }
+            }
+            
+            function updateFuelDisplay(ship, fuelElement) {
+                const fuelLines = Math.max(0, Math.floor((ship.fuel / MAX_FUEL_SECONDS) * TOTAL_FUEL_LINES));
+                fuelElement.innerHTML = '';
+                for (let i = 0; i < fuelLines; i++) {
+                    const fuelLineDiv = document.createElement('div');
+                    fuelLineDiv.className = 'fuel-line';
+                    fuelElement.appendChild(fuelLineDiv);
+                }
+            }
+
+            function updateScoreDisplay() {
+                scoreP1.textContent = player1Score;
+                scoreP2.textContent = player2Score;
+            }
+
+            function createExplosion(x, y, color) {
+                const particleCount = 100;
+                const particles = [];
+                for (let i = 0; i < particleCount; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 2 + 0.5;
+                    particles.push({
+                        x: x,
+                        y: y,
+                        size: Math.random() * 3 + 1,
+                        velocityX: Math.cos(angle) * speed,
+                        velocityY: Math.sin(angle) * speed,
+                        color: color,
+                        alpha: 1.0
+                    });
+                }
+                explosions.push({ particles: particles });
+            }
+
+            function drawExplosion(explosion) {
+                explosion.particles.forEach(p => {
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = p.alpha;
+                    ctx.fillRect(p.x, p.y, p.size, p.size);
+                });
+                ctx.globalAlpha = 1.0;
+            }
+
+            function updateExplosions() {
+                explosions.forEach(explosion => {
+                    explosion.particles.forEach(p => {
+                        p.x += p.velocityX;
+                        p.y += p.velocityY;
+                        p.alpha -= 0.01;
+                    });
+                    explosion.particles = explosion.particles.filter(p => p.alpha > 0);
+                });
+                explosions = explosions.filter(e => e.particles.length > 0);
+            }
+            
+            function respawnShip(ship) {
+                if (player1Score >= WINNING_SCORE || player2Score >= WINNING_SCORE) {
+                    return;
+                }
+
+                setTimeout(() => {
+                    missiles.forEach(missile => {
+                        if (missile.parent === ship) {
+                            createExplosion(missile.x, missile.y, missile.color);
+                            missile.destroyed = true;
+                        }
+                    });
+                }, 1500);
+
+                const gravityConstant = 50; 
+                const circularVelocity = 0.9 * Math.sqrt(gravityConstant / initialDistance);
+                
+                setTimeout(() => {
+                    ship.destroyed = false;
+                    ship.missiles = 3;
+                    ship.fuel = MAX_FUEL_SECONDS;
+                    ship.hasBeenPenalized = false;
+                    
+                    if (ship === player1Ship) {
+                        ship.x = canvas.width / 2 - initialDistance;
+                        ship.y = canvas.height / 2;
+                        ship.velocityX = 0;
+                        ship.velocityY = -circularVelocity;
+                        ship.angle = Math.PI * 1.5;
+                    } else {
+                        ship.x = canvas.width / 2 + initialDistance;
+                        ship.y = canvas.height / 2;
+                        ship.velocityX = 0;
+                        ship.velocityY = circularVelocity;
+                        ship.angle = Math.PI * 0.5;
+                    }
+
+                    ship.invulnerable = true;
+                    setTimeout(() => {
+                        ship.invulnerable = false;
+                    }, 3000);
+                    
+                    updateAmmoDisplay();
+                    updateFuelDisplay(player1Ship, fuelDisplayP1);
+                    updateFuelDisplay(player2Ship, fuelDisplayP2);
+                }, 3000);
+            }
+            
+            function resetInitialPositions() {
+                const gravityConstant = 50; 
+                const circularVelocity = 0.9 * Math.sqrt(gravityConstant / initialDistance); 
+
+                player1Ship.x = canvas.width / 2 - initialDistance;
+                player1Ship.y = canvas.height / 2;
+                player1Ship.velocityX = 0;
+                player1Ship.velocityY = -circularVelocity;
+                player1Ship.angle = Math.PI * 1.5;
+                player1Ship.destroyed = false;
+                player1Ship.missiles = 3;
+                player1Ship.fuel = MAX_FUEL_SECONDS;
+                player1Ship.invulnerable = true;
+                player1Ship.hasBeenPenalized = false;
+                setTimeout(() => player1Ship.invulnerable = false, 3000);
+
+                player2Ship.x = canvas.width / 2 + initialDistance;
+                player2Ship.y = canvas.height / 2;
+                player2Ship.velocityX = 0;
+                player2Ship.velocityY = circularVelocity;
+                player2Ship.angle = Math.PI * 0.5;
+                player2Ship.destroyed = false;
+                player2Ship.missiles = 3;
+                player2Ship.fuel = MAX_FUEL_SECONDS;
+                player2Ship.invulnerable = true;
+                player2Ship.hasBeenPenalized = false;
+                setTimeout(() => player2Ship.invulnerable = false, 3000);
+
+                missiles = [];
+                explosions = [];
+                updateAmmoDisplay();
+                updateFuelDisplay(player1Ship, fuelDisplayP1);
+                updateFuelDisplay(player2Ship, fuelDisplayP2);
+                updateScoreDisplay();
+                noFuelTimer = null;
+            }
+
+            function resetGame() {
+                player1Score = 0;
+                player2Score = 0;
+                resetInitialPositions();
+            }
+
+            function checkWinCondition() {
+                if (player1Score >= WINNING_SCORE || player2Score >= WINNING_SCORE) {
+                    endGame();
+                }
+            }
+
+            function endGame() {
+                isGameRunning = false;
+                cancelAnimationFrame(animationFrameId);
+                let finalMessage;
+
+                const player1Type = isPlayer1Bot ? 'Bot' : 'Human';
+                const player2Type = isPlayer2Bot ? 'Bot' : 'Human';
+
+                if (player1Score >= WINNING_SCORE) {
+                    finalMessage = `Player 1 (Green, ${player1Type}) wins the match with ${player1Score} points!`;
+                } else if (player2Score >= WINNING_SCORE) {
+                    finalMessage = `Player 2 (Red, ${player2Type}) wins the match with ${player2Score} points!`;
+                }
+
+                showMessageBox(finalMessage, true);
+            }
+
+            function resizeCanvas() {
+                const gameContainer = document.getElementById('gameContainer');
+                canvas.width = gameContainer.clientWidth;
+                canvas.height = gameContainer.clientHeight;
+                planet.x = canvas.width / 2;
+                planet.y = canvas.height / 2;
+                
+                resetGame();
+                draw();
+            }
+
+            function showMessageBox(message) {
+                messageText.textContent = message;
+                messageBox.style.display = 'flex';
+                
+                if (isGameRunning) {
+                    readyP1Button.style.display = 'none';
+                    readyBotP1Button.style.display = 'none';
+                    readyP2Button.style.display = 'none';
+                    readyBotP2Button.style.display = 'none';
+                } else {
+                    readyP1Button.style.display = 'inline-block';
+                    readyBotP1Button.style.display = 'inline-block';
+                    readyP2Button.style.display = 'inline-block';
+                    readyBotP2Button.style.display = 'inline-block';
+                }
+            }
+            
+            function abortGame() {
+                isGameRunning = false;
+                cancelAnimationFrame(animationFrameId);
+                player1Score = 0;
+                player2Score = 0;
+                player1Ready = false;
+                player2Ready = false;
+                isPlayer1Bot = false;
+                isPlayer2Bot = false;
+                updateScoreDisplay();
+                showMessageBox("Let's Try That Again");
+            }
+
+            function startGame() {
+                keys = {}; 
+
+                messageBox.style.display = 'none';
+                isGameRunning = true;
+                resetGame();
+                gameLoop();
+            }
+
+            function drawShip(ship) {
+                if (ship.destroyed) return;
+                ctx.save();
+                ctx.translate(ship.x, ship.y);
+                ctx.rotate(ship.angle);
+
+                ctx.fillStyle = ship.color;
+                ctx.shadowColor = ship.color;
+                ctx.shadowBlur = 15;
+
+                if (ship.invulnerable) {
+                    ctx.globalAlpha = Math.abs(Math.sin(Date.now() / 150));
+                }
+
+                ctx.beginPath();
+                ctx.moveTo(ship.height / 2, 0);
+                ctx.lineTo(-ship.height / 2, -ship.width / 2);
+                ctx.lineTo(-ship.height / 2, ship.width / 2);
+                ctx.closePath();
+                ctx.fill();
+
+                // console.log(`ship thrust is: ${ship.thrust} and that not equals zero: ${ship.thrust > 0}`);
+
+                if (ship.thrust !== 0) {
+                    ctx.fillStyle = '#ff8000'
+                    ctx.beginPath();
+                    ctx.moveTo(-ship.height / 2, 0);
+                    ctx.lineTo(-ship.height / 1.5, -ship.width / 2);
+                    ctx.lineTo(-ship.height / 1.5, ship.width / 2);
+                    ctx.closePath();
+                    ctx.fill()
+                    console.log('Drew thrust');
+                }
+
+                ctx.restore();
+                ctx.globalAlpha = 1.0;
+                ctx.shadowBlur = 0;
+            }
+
+            function drawMissile(missile) {
+                if (missile.destroyed) return;
+                ctx.save();
+                ctx.translate(missile.x, missile.y);
+                ctx.fillStyle = missile.color;
+                ctx.shadowColor = missile.color;
+                ctx.shadowBlur = 10;
+                ctx.fillRect(-2, -2, 4, 4);
+                ctx.restore();
+                ctx.shadowBlur = 0;
+            }
+            
+            function drawOffscreenIndicator(ship) {
+                const buffer = 10;
+                const canvasLeft = buffer;
+                const canvasRight = canvas.width - buffer;
+                const canvasTop = buffer;
+                const canvasBottom = canvas.height - buffer;
+
+                if (ship.x > canvas.width || ship.x < 0 || ship.y > canvas.height || ship.y < 0) {
+                    const dx = ship.x - canvas.width / 2;
+                    const dy = ship.y - canvas.height / 2;
+                    const angle = Math.atan2(dy, dx);
+
+                    let indicatorX, indicatorY;
+                    let m = dy / dx;
+
+                    if (Math.abs(dy) > Math.abs(dx)) {
+                        if (dy > 0) {
+                            indicatorY = canvasBottom;
+                            indicatorX = canvas.width / 2 + (canvasBottom - canvas.height / 2) / m;
+                        } else {
+                            indicatorY = canvasTop;
+                            indicatorX = canvas.width / 2 + (canvasTop - canvas.height / 2) / m;
+                        }
+                    } else {
+                        if (dx > 0) {
+                            indicatorX = canvasRight;
+                            indicatorY = canvas.height / 2 + m * (canvasRight - canvas.width / 2);
+                        } else {
+                            indicatorX = canvasLeft;
+                            indicatorY = canvas.height / 2 + m * (canvasLeft - canvas.width / 2);
+                        }
+                    }
+                    
+                    ctx.save();
+                    ctx.fillStyle = ship.color;
+                    ctx.shadowColor = ship.color;
+                    ctx.shadowBlur = 15;
+                    ctx.beginPath();
+                    ctx.arc(indicatorX, indicatorY, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = planet.color;
+                ctx.shadowColor = planet.color;
+                ctx.shadowBlur = 30;
+                ctx.beginPath();
+                ctx.arc(planet.x, planet.y, planet.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                drawShip(player1Ship);
+                drawShip(player2Ship);
+                
+                drawOffscreenIndicator(player1Ship);
+                drawOffscreenIndicator(player2Ship);
+
+                missiles.forEach(drawMissile);
+                explosions.forEach(drawExplosion);
+            }
+
+            function updateShip(ship) {
+                if (ship.destroyed) return;
+                
+                let dx = planet.x - ship.x;
+                let dy = planet.y - ship.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > 1) {
+                    const gravityConstant = 50; 
+                    let gravityForce = gravityConstant / (distance * distance);
+                    ship.velocityX += gravityForce * dx / distance;
+                    ship.velocityY += gravityForce * dy / distance;
+                }
+                
+                if (ship.thrust > 0) {
+                    const thrustMagnitude = 0.002;
+                    ship.velocityX += thrustMagnitude * Math.cos(ship.angle);
+                    ship.velocityY += thrustMagnitude * Math.sin(ship.angle);
+                }
+
+                ship.x += ship.velocityX;
+                ship.y += ship.velocityY;
+
+                if (distance < planet.radius + 10) {
+                    if (!ship.hasBeenPenalized) {
+                         if (ship === player1Ship) {
+                            player1Score = Math.max(0, player1Score - 1);
+                         } else {
+                            player2Score = Math.max(0, player2Score - 1);
+                         }
+                         ship.hasBeenPenalized = true;
+                         updateScoreDisplay();
+                    }
+                    
+                    ship.destroyed = true;
+                    createExplosion(ship.x, ship.y, ship.color);
+                    respawnShip(ship);
+                } else {
+                    ship.hasBeenPenalized = false;
+                }
+
+                const dragZoneWidth = 100;
+                const canvasCenterX = canvas.width / 2;
+                const canvasCenterY = canvas.height / 2;
+
+                const distToCenter = Math.sqrt(Math.pow(ship.x - canvasCenterX, 2) + Math.pow(ship.y - canvasCenterY, 2));
+                const canvasMaxDist = Math.sqrt(Math.pow(canvas.width / 2, 2) + Math.pow(canvas.height / 2, 2));
+
+                if (distToCenter > canvasMaxDist) {
+                    const dragStrength = (distToCenter - canvasMaxDist) / dragZoneWidth;
+                    const dragAngle = Math.atan2(canvasCenterY - ship.y, canvasCenterX - ship.x);
+                    
+                    ship.velocityX += dragStrength * Math.cos(dragAngle) * 0.2;
+                    ship.velocityY += dragStrength * Math.sin(dragAngle) * 0.2;
+                }
+            }
+            
+            function fireMissile(ship) {
+                if (ship.missiles > 0) {
+                    ship.missiles--;
+                    updateAmmoDisplay();
+                    
+                    const missileSpeed = 1;
+                    const missileX = ship.x + (ship.height / 2) * Math.cos(ship.angle);
+                    const missileY = ship.y + (ship.height / 2) * Math.sin(ship.angle);
+
+                    missiles.push({
+                        x: missileX,
+                        y: missileY,
+                        velocityX: ship.velocityX + missileSpeed * Math.cos(ship.angle),
+                        velocityY: ship.velocityY + missileSpeed * Math.sin(ship.angle),
+                        color: ship.color,
+                        destroyed: false,
+                        parent: ship,
+                        timestamp: Date.now()
+                    });
+                }
+            }
+
+            function updateMissiles() {
+                missiles.forEach(missile => {
+                    if (missile.destroyed) return;
+                    
+                    let dx = planet.x - missile.x;
+                    let dy = planet.y - missile.y;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (Date.now() - missile.timestamp > MISSILE_LIFETIME) {
+                        missile.destroyed = true;
+                        createExplosion(missile.x, missile.y, missile.color);
+                        missile.parent.missiles++;
+                        updateAmmoDisplay();
+                        return;
+                    }
+
+                    if (distance > 1) {
+                        const gravityConstant = 200; 
+                        let gravityForce = gravityConstant / (distance * distance);
+                        missile.velocityX += gravityForce * dx / distance;
+                        missile.velocityY += gravityForce * dy / distance;
+                    }
+                    
+                    missile.x += missile.velocityX;
+                    missile.y += missile.velocityY;
+
+                    if (distance < planet.radius + 5) {
+                        missile.destroyed = true;
+                        missile.parent.missiles++;
+                        updateAmmoDisplay();
+                    }
+
+                    const canvasMaxDist = Math.sqrt(Math.pow(canvas.width / 2, 2) + Math.pow(canvas.height / 2, 2));
+                    const distToCenter = Math.sqrt(Math.pow(missile.x - canvas.width/2, 2) + Math.pow(missile.y - canvas.height/2, 2));
+                    if (distToCenter > canvasMaxDist + 50) {
+                         missile.destroyed = true;
+                         missile.parent.missiles++;
+                         updateAmmoDisplay();
+                    }
+
+                    const otherShip = missile.parent === player1Ship ? player2Ship : player1Ship;
+                    if (!otherShip.destroyed && !otherShip.invulnerable) {
+                        const shipDistance = Math.sqrt(Math.pow(missile.x - otherShip.x, 2) + Math.pow(missile.y - otherShip.y, 2));
+                        if (shipDistance < otherShip.width) {
+                            otherShip.destroyed = true;
+                            missile.destroyed = true;
+                            createExplosion(otherShip.x, otherShip.y, otherShip.color);
+                            missile.parent.missiles++;
+                            updateAmmoDisplay();
+                            if (missile.parent === player1Ship) {
+                                player1Score++;
+                            } else {
+                                player2Score++;
+                            }
+                            respawnShip(otherShip);
+                            updateScoreDisplay();
+                            checkWinCondition();
+                        }
+                    }
+
+                    missiles.forEach(otherMissile => {
+                        if (missile !== otherMissile && !missile.destroyed && !otherMissile.destroyed) {
+                            const isSamePlayer = missile.parent === otherMissile.parent;
+                            const isPastGracePeriod = Date.now() - missile.timestamp > MISSILE_COLLISION_GRACE_PERIOD;
+                            
+                            if (!isSamePlayer || isPastGracePeriod) {
+                                const missileDistance = Math.sqrt(Math.pow(missile.x - otherMissile.x, 2) + Math.pow(missile.y - otherMissile.y, 2));
+                                if (missileDistance < 8) {
+                                    missile.destroyed = true;
+                                    otherMissile.destroyed = true;
+                                    createExplosion(missile.x, missile.y, missile.color);
+                                    missile.parent.missiles++;
+                                    otherMissile.parent.missiles++;
+                                    updateAmmoDisplay();
+                                }
+                            }
+                        }
+                    });
+                });
+                
+                missiles = missiles.filter(m => !m.destroyed);
+            }
+
+            function aiLogic(bot, target) {
+                if (!isGameRunning || bot.destroyed) return;
+                
+                const dx = target.x - bot.x;
+                const dy = target.y - bot.y;
+                let angleToTarget = Math.atan2(dy, dx);
+                
+                // Add a small random offset to break the mirroring
+                const randomness = (Math.random() - 0.5) * 0.5; // Random value between -0.25 and 0.25
+                angleToTarget += randomness;
+
+                let angleDiff = angleToTarget - bot.angle;
+                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+                if (Math.abs(angleDiff) > 0.05) {
+                    if (angleDiff > 0) {
+                        bot.angle += bot.rotationSpeed;
+                    } else {
+                        bot.angle -= bot.rotationSpeed;
+                    }
+                }
+
+                const preferredDistance = 150;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > preferredDistance && bot.fuel > 0) {
+                    bot.thrust = 0.002;
+                    bot.fuel -= FUEL_PER_FRAME;
+                } else if (distance < preferredDistance && bot.fuel > 0) {
+                     bot.thrust = -0.002;
+                     bot.fuel -= FUEL_PER_FRAME;
+                } else {
+                    bot.thrust = 0;
+                }
+
+                const angleTolerance = 0.1;
+                const firingDistance = 180;
+                const firingChance = 0.05; // 5% chance to fire each frame
+                
+                if (bot.missiles > 0 && Math.abs(angleDiff) < angleTolerance && distance < firingDistance && Math.random() < firingChance) {
+                    fireMissile(bot);
+                }
+            }
+
+            function gameLoop() {
+                if (!isGameRunning) return;
+
+                if (player1Ship.fuel <= 0 && player2Ship.fuel <= 0) {
+                    if (noFuelTimer === null) {
+                        noFuelTimer = Date.now();
+                    } else if (Date.now() - noFuelTimer > NO_FUEL_TIMEOUT) {
+                        player1Ship.destroyed = true;
+                        player2Ship.destroyed = true;
+                        createExplosion(player1Ship.x, player1Ship.y, player1Ship.color);
+                        createExplosion(player2Ship.x, player2Ship.y, player2Ship.color);
+                        respawnShip(player1Ship);
+                        respawnShip(player2Ship);
+                        noFuelTimer = null;
+                    }
+                } else {
+                    noFuelTimer = null;
+                }
+
+                // Player 1 Logic
+                if (!isPlayer1Bot) {
+                    if (keys['w']) {
+                        if (player1Ship.fuel > 0) {
+                            player1Ship.thrust = 0.002;
+                            player1Ship.fuel -= FUEL_PER_FRAME;
+                        } else {
+                            player1Ship.thrust = 0;
+                        }
+                    } else {
+                        player1Ship.thrust = 0;
+                    }
+                    if (keys['a']) player1Ship.angle -= player1Ship.rotationSpeed;
+                    if (keys['d']) player1Ship.angle += player1Ship.rotationSpeed;
+                    if (keys['s']) {
+                        fireMissile(player1Ship);
+                        keys['s'] = false;
+                    }
+                } else {
+                    aiLogic(player1Ship, player2Ship);
+                }
+
+                // Player 2 Logic
+                if (!isPlayer2Bot) {
+                    if (keys['arrowup']) {
+                        if (player2Ship.fuel > 0) {
+                            player2Ship.thrust = 0.002;
+                            player2Ship.fuel -= FUEL_PER_FRAME;
+                        } else {
+                            player2Ship.thrust = 0;
+                        }
+                    } else {
+                        player2Ship.thrust = 0;
+                    }
+                    if (keys['arrowleft']) player2Ship.angle -= player2Ship.rotationSpeed;
+                    if (keys['arrowright']) player2Ship.angle += player2Ship.rotationSpeed;
+                    if (keys['arrowdown']) {
+                        fireMissile(player2Ship);
+                        keys['arrowdown'] = false;
+                    }
+                } else {
+                    aiLogic(player2Ship, player1Ship);
+                }
+                
+                if (keys['y']) {
+                    abortGame();
+                    keys['y'] = false;
+                }
+
+                updateShip(player1Ship);
+                updateShip(player2Ship);
+
+                if (!player1Ship.destroyed && !player2Ship.destroyed) {
+                    let shipDistance = Math.sqrt(Math.pow(player1Ship.x - player2Ship.x, 2) + Math.pow(player1Ship.y - player2Ship.y, 2));
+                    let collisionDistance = player1Ship.width + player2Ship.width;
+
+                    if (shipDistance < collisionDistance) {
+                        const player1Velocity = Math.sqrt(Math.pow(player1Ship.velocityX, 2) + Math.pow(player1Ship.velocityY, 2));
+                        const player2Velocity = Math.sqrt(Math.pow(player2Ship.velocityX, 2) + Math.pow(player2Ship.velocityY, 2));
+
+                        if (player1Velocity > player2Velocity) {
+                            player2Ship.destroyed = true;
+                            player1Score++;
+                            createExplosion(player2Ship.x, player2Ship.y, player2Ship.color);
+                            respawnShip(player2Ship);
+                        } else if (player2Velocity > player1Velocity) {
+                            player1Ship.destroyed = true;
+                            player2Score++;
+                            createExplosion(player1Ship.x, player1Ship.y, player1Ship.color);
+                            respawnShip(player1Ship);
+                        } else {
+                            player1Ship.destroyed = true;
+                            player2Ship.destroyed = true;
+                            createExplosion(player1Ship.x, player1Ship.y, player1Ship.color);
+                            createExplosion(player2Ship.x, player2Ship.y, player2Ship.color);
+                            respawnShip(player1Ship);
+                            respawnShip(player2Ship);
+                        }
+                        updateScoreDisplay();
+                        checkWinCondition();
+                    }
+                }
+
+                updateMissiles();
+                updateExplosions();
+                updateFuelDisplay(player1Ship, fuelDisplayP1);
+                updateFuelDisplay(player2Ship, fuelDisplayP2);
+                draw();
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            function checkBothReady() {
+                if (player1Ready && player2Ready) {
+                    startGame();
+                } else if (player1Ready) {
+                    messageText.textContent = `Player 1 (${isPlayer1Bot ? 'Bot' : 'Human'}) is ready. Waiting for Player 2...`;
+                } else if (player2Ready) {
+                    messageText.textContent = `Player 2 (${isPlayer2Bot ? 'Bot' : 'Human'}) is ready. Waiting for Player 1...`;
+                }
+            }
+
+            readyP1Button.addEventListener('click', () => {
+                player1Ready = true;
+                isPlayer1Bot = false;
+                checkBothReady();
+            });
+
+            readyBotP1Button.addEventListener('click', () => {
+                player1Ready = true;
+                isPlayer1Bot = true;
+                checkBothReady();
+            });
+
+            readyP2Button.addEventListener('click', () => {
+                player2Ready = true;
+                isPlayer2Bot = false;
+                checkBothReady();
+            });
+
+            readyBotP2Button.addEventListener('click', () => {
+                player2Ready = true;
+                isPlayer2Bot = true;
+                checkBothReady();
+            });
+
+            showMessageBox('Welcome to Gravity Duel! Click "Ready" to begin.');
+        });
+    </script>
+</body>
+</html>
