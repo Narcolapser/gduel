@@ -40,6 +40,21 @@ export function updateAmmoContainer(ship, containerId, document) {
     for (let i = 0; i < ship.missiles; i++) {
         const missileDiv = document.createElement('div');
         missileDiv.className = 'missile-icon';
-        container.appendChild(missileDiv);
+        container.appendChild(missileDiv)
+    }
+}
+
+const MAX_FUEL_SECONDS = 10;
+const TOTAL_FUEL_LINES = 57;
+const FUEL_PER_FRAME = (1 / (MAX_FUEL_SECONDS * 60)) * 2;
+
+export function updateFuelDisplay(ship, fuelElementid, document) {
+    const fuelElement = document.getElementById(fuelElementid);
+    const fuelLines = Math.max(0, Math.floor((ship.fuel / MAX_FUEL_SECONDS) * TOTAL_FUEL_LINES));
+    fuelElement.innerHTML = '';
+    for (let i = 0; i < fuelLines; i++) {
+        const fuelLineDiv = document.createElement('div');
+        fuelLineDiv.className = 'fuel-line';
+        fuelElement.appendChild(fuelLineDiv);
     }
 }

@@ -298,7 +298,7 @@
     </div>
 
     <script type="module">
-        import { drawShip, updateAmmoContainer } from './ship.js';
+        import { drawShip, updateAmmoContainer, updateFuelDisplay } from './ship.js';
 
         document.addEventListener('DOMContentLoaded', () => {
             const canvas = document.getElementById('gameCanvas');
@@ -315,8 +315,8 @@
             const pauseButtonContainer = document.getElementById('pause-button-container');
             const scoreP1 = document.getElementById('score-p1');
             const scoreP2 = document.getElementById('score-p2');
-            const fuelDisplayP1 = document.getElementById('fuel-display-p1');
-            const fuelDisplayP2 = document.getElementById('fuel-display-p2');
+            const fuelDisplayP1 = 'fuel-display-p1';
+            const fuelDisplayP2 = 'fuel-display-p2';
 
             let isGameRunning = false;
             let isGamePaused = false;
@@ -329,7 +329,6 @@
 
             const WINNING_SCORE = 5;
             const MAX_FUEL_SECONDS = 10;
-            const TOTAL_FUEL_LINES = 57;
             const FUEL_PER_FRAME = (1 / (MAX_FUEL_SECONDS * 60)) * 2;
             const MISSILE_LIFETIME = 30000;
             const NO_FUEL_TIMEOUT = 30000;
@@ -411,16 +410,6 @@
             function updateAmmoDisplay() {
                 updateAmmoContainer(player1Ship, 'missile-icons-p1', document);
                 updateAmmoContainer(player2Ship, 'missile-icons-p2', document);
-            }
-            
-            function updateFuelDisplay(ship, fuelElement) {
-                const fuelLines = Math.max(0, Math.floor((ship.fuel / MAX_FUEL_SECONDS) * TOTAL_FUEL_LINES));
-                fuelElement.innerHTML = '';
-                for (let i = 0; i < fuelLines; i++) {
-                    const fuelLineDiv = document.createElement('div');
-                    fuelLineDiv.className = 'fuel-line';
-                    fuelElement.appendChild(fuelLineDiv);
-                }
             }
 
             function updateScoreDisplay() {
@@ -511,8 +500,8 @@
                     }, 3000);
                     
                     updateAmmoDisplay();
-                    updateFuelDisplay(player1Ship, fuelDisplayP1);
-                    updateFuelDisplay(player2Ship, fuelDisplayP2);
+                    updateFuelDisplay(player1Ship, fuelDisplayP1, document);
+                    updateFuelDisplay(player2Ship, fuelDisplayP2, document);
                 }, 3000);
             }
             
@@ -547,8 +536,8 @@
                 missiles = [];
                 explosions = [];
                 updateAmmoDisplay();
-                updateFuelDisplay(player1Ship, fuelDisplayP1);
-                updateFuelDisplay(player2Ship, fuelDisplayP2);
+                updateFuelDisplay(player1Ship, fuelDisplayP1, document);
+                updateFuelDisplay(player2Ship, fuelDisplayP2, document);
                 updateScoreDisplay();
                 noFuelTimer = null;
             }
@@ -1033,8 +1022,8 @@
 
                 updateMissiles();
                 updateExplosions();
-                updateFuelDisplay(player1Ship, fuelDisplayP1);
-                updateFuelDisplay(player2Ship, fuelDisplayP2);
+                updateFuelDisplay(player1Ship, fuelDisplayP1, document);
+                updateFuelDisplay(player2Ship, fuelDisplayP2, document);
                 draw();
                 animationFrameId = requestAnimationFrame(gameLoop);
             }
