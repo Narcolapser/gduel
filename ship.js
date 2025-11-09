@@ -1,0 +1,35 @@
+export function drawShip(ship, ctx) {
+    if (ship.destroyed) return;
+    ctx.save();
+    ctx.translate(ship.x, ship.y);
+    ctx.rotate(ship.angle);
+
+    ctx.fillStyle = ship.color;
+    ctx.shadowColor = ship.color;
+    ctx.shadowBlur = 15;
+
+    if (ship.invulnerable) {
+        ctx.globalAlpha = Math.abs(Math.sin(Date.now() / 150));
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(ship.height / 2, 0);
+    ctx.lineTo(-ship.height / 2, -ship.width / 2);
+    ctx.lineTo(-ship.height / 2, ship.width / 2);
+    ctx.closePath();
+    ctx.fill();
+
+    if (ship.thrust !== 0) {
+        ctx.fillStyle = '#ff8000'
+        ctx.beginPath();
+        ctx.moveTo(-ship.height / 2, 0);
+        ctx.lineTo(-ship.height / 1.5, -ship.width / 2);
+        ctx.lineTo(-ship.height / 1.5, ship.width / 2);
+        ctx.closePath();
+        ctx.fill()
+    }
+
+    ctx.restore();
+    ctx.globalAlpha = 1.0;
+    ctx.shadowBlur = 0;
+}
