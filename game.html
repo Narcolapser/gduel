@@ -298,7 +298,7 @@
     </div>
 
     <script type="module">
-        import { drawShip } from './ship.js';
+        import { drawShip, updateAmmoContainer } from './ship.js';
 
         document.addEventListener('DOMContentLoaded', () => {
             const canvas = document.getElementById('gameCanvas');
@@ -409,22 +409,8 @@
             });
 
             function updateAmmoDisplay() {
-                const p1Container = document.getElementById('missile-icons-p1');
-                const p2Container = document.getElementById('missile-icons-p2');
-
-                p1Container.innerHTML = '';
-                for (let i = 0; i < player1Ship.missiles; i++) {
-                    const missileDiv = document.createElement('div');
-                    missileDiv.className = 'missile-icon';
-                    p1Container.appendChild(missileDiv);
-                }
-
-                p2Container.innerHTML = '';
-                for (let i = 0; i < player2Ship.missiles; i++) {
-                    const missileDiv = document.createElement('div');
-                    missileDiv.className = 'missile-icon';
-                    p2Container.appendChild(missileDiv);
-                }
+                updateAmmoContainer(player1Ship, 'missile-icons-p1', document);
+                updateAmmoContainer(player2Ship, 'missile-icons-p2', document);
             }
             
             function updateFuelDisplay(ship, fuelElement) {

@@ -33,3 +33,13 @@ export function drawShip(ship, ctx) {
     ctx.globalAlpha = 1.0;
     ctx.shadowBlur = 0;
 }
+
+export function updateAmmoContainer(ship, containerId, document) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    for (let i = 0; i < ship.missiles; i++) {
+        const missileDiv = document.createElement('div');
+        missileDiv.className = 'missile-icon';
+        container.appendChild(missileDiv);
+    }
+}
