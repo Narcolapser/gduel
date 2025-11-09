@@ -8,7 +8,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
         :root {
-            --bg-color: #0d0f12;
+            --bg-color: #020826;
             --text-color: #e0e0e0;
         }
 
@@ -31,7 +31,7 @@
             font-size: clamp(1rem, 3vw, 2.5rem);
             margin-bottom: 20px;
             color: #ffffff;
-            text-shadow: 0 0 5px #ffffff, 0 0 10px #ffffff;
+            text-shadow: 0 0 5px #AB49E3, 0 0 10px #EECFFF;
         }
 
         #game-ui-wrapper {
@@ -214,6 +214,14 @@
             margin-top: 15px;
             gap: 10px;
         }
+        
+        .pause-button-container {
+            display: none;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 15px;
+            gap: 10px;
+        }
 
         .player-ready-buttons {
             display: flex;
@@ -255,7 +263,7 @@
             <canvas id="gameCanvas"></canvas>
             <div id="messageBox">
                 <div id="messageText">Welcome!</div>
-                <div class="ready-button-container">
+                <div id="ready-button-container" class="ready-button-container">
                     <div class="player-ready-buttons">
                         <div class="ready-label" style="color: #00ff00;">Player 1</div>
                         <button id="readyP1Button" class="action-button">Ready Player</button>
@@ -266,6 +274,10 @@
                         <button id="readyP2Button" class="action-button">Ready Player</button>
                         <button id="readyBotP2Button" class="action-button">Ready Bot</button>
                     </div>
+                </div>
+                <div id="pause-button-container" class="pause-button-container">
+                    <button id="resumeButton" class="action-button">Resume</button>
+                    <button id="quitButton" class="action-button">Quit</button>
                 </div>
             </div>
         </div>
@@ -282,7 +294,7 @@
         <br>
         Player 2 (Red): Arrow Keys to move, Down Arrow to shoot.
         <br>
-        Press Y to abort to the start screen.
+        Press Y to pause/resume. Press N to quit.
     </div>
 
     <script>
@@ -295,12 +307,17 @@
             const readyBotP1Button = document.getElementById('readyBotP1Button');
             const readyP2Button = document.getElementById('readyP2Button');
             const readyBotP2Button = document.getElementById('readyBotP2Button');
+            const resumeButton = document.getElementById('resumeButton');
+            const quitButton = document.getElementById('quitButton');
+            const readyButtonContainer = document.getElementById('ready-button-container');
+            const pauseButtonContainer = document.getElementById('pause-button-container');
             const scoreP1 = document.getElementById('score-p1');
             const scoreP2 = document.getElementById('score-p2');
             const fuelDisplayP1 = document.getElementById('fuel-display-p1');
             const fuelDisplayP2 = document.getElementById('fuel-display-p2');
 
             let isGameRunning = false;
+            let isGamePaused = false;
             let animationFrameId;
 
             let player1Ready = false;
@@ -370,18 +387,18 @@
             let keys = {};
             
             document.addEventListener('keydown', (e) => {
-                if (isGameRunning) {
-                    keys[e.key.toLowerCase()] = true;
-                }
-                
-                if (messageBox.style.display === 'flex') {
-                    if (e.key.toLowerCase() === 's' && !player1Ready) {
-                        e.preventDefault();
-                        readyP1Button.click();
+                if (isGameRunning && !isGamePaused) {
+                    if (e.key.toLowerCase() === 'y') {
+                        pauseGame();
+                    } else {
+                        keys[e.key.toLowerCase()] = true;
                     }
-                    if (e.key === 'ArrowDown' && !player2Ready) {
-                        e.preventDefault();
-                        readyP2Button.click();
+                } else if (isGamePaused) {
+                    if (e.key.toLowerCase() === 'y') {
+                        resumeGame();
+                    }
+                    if (e.key.toLowerCase() === 'n') {
+                        quitGame();
                     }
                 }
             });
@@ -574,7 +591,7 @@
                     finalMessage = `Player 2 (Red, ${player2Type}) wins the match with ${player2Score} points!`;
                 }
 
-                showMessageBox(finalMessage, true);
+                showMessageBox('win/loss', finalMessage);
             }
 
             function resizeCanvas() {
@@ -588,25 +605,25 @@
                 draw();
             }
 
-            function showMessageBox(message) {
+            function showMessageBox(type, message) {
                 messageText.textContent = message;
                 messageBox.style.display = 'flex';
                 
-                if (isGameRunning) {
-                    readyP1Button.style.display = 'none';
-                    readyBotP1Button.style.display = 'none';
-                    readyP2Button.style.display = 'none';
-                    readyBotP2Button.style.display = 'none';
-                } else {
-                    readyP1Button.style.display = 'inline-block';
-                    readyBotP1Button.style.display = 'inline-block';
-                    readyP2Button.style.display = 'inline-block';
-                    readyBotP2Button.style.display = 'inline-block';
+                if (type === 'start') {
+                    readyButtonContainer.style.display = 'flex';
+                    pauseButtonContainer.style.display = 'none';
+                } else if (type === 'pause') {
+                    readyButtonContainer.style.display = 'none';
+                    pauseButtonContainer.style.display = 'flex';
+                } else if (type === 'win/loss') {
+                    readyButtonContainer.style.display = 'flex';
+                    pauseButtonContainer.style.display = 'none';
                 }
             }
             
-            function abortGame() {
+            function quitGame() {
                 isGameRunning = false;
+                isGamePaused = false;
                 cancelAnimationFrame(animationFrameId);
                 player1Score = 0;
                 player2Score = 0;
@@ -615,7 +632,20 @@
                 isPlayer1Bot = false;
                 isPlayer2Bot = false;
                 updateScoreDisplay();
-                showMessageBox("Let's Try That Again");
+                resetInitialPositions();
+                showMessageBox('start', "Welcome to Gravity Duel! Click \"Ready\" to begin.");
+            }
+            
+            function pauseGame() {
+                isGamePaused = true;
+                cancelAnimationFrame(animationFrameId);
+                showMessageBox('pause', 'Game Paused\nWould you like to resume?');
+            }
+            
+            function resumeGame() {
+                isGamePaused = false;
+                messageBox.style.display = 'none';
+                gameLoop();
             }
 
             function startGame() {
@@ -648,8 +678,6 @@
                 ctx.closePath();
                 ctx.fill();
 
-                // console.log(`ship thrust is: ${ship.thrust} and that not equals zero: ${ship.thrust > 0}`);
-
                 if (ship.thrust !== 0) {
                     ctx.fillStyle = '#ff8000'
                     ctx.beginPath();
@@ -658,7 +686,6 @@
                     ctx.lineTo(-ship.height / 1.5, ship.width / 2);
                     ctx.closePath();
                     ctx.fill()
-                    console.log('Drew thrust');
                 }
 
                 ctx.restore();
@@ -951,7 +978,7 @@
             }
 
             function gameLoop() {
-                if (!isGameRunning) return;
+                if (!isGameRunning || isGamePaused) return;
 
                 if (player1Ship.fuel <= 0 && player2Ship.fuel <= 0) {
                     if (noFuelTimer === null) {
@@ -1014,7 +1041,7 @@
                 }
                 
                 if (keys['y']) {
-                    abortGame();
+                    pauseGame();
                     keys['y'] = false;
                 }
 
@@ -1067,9 +1094,9 @@
                 if (player1Ready && player2Ready) {
                     startGame();
                 } else if (player1Ready) {
-                    messageText.textContent = `Player 1 (${isPlayer1Bot ? 'Bot' : 'Human'}) is ready. Waiting for Player 2...`;
+                    showMessageBox('start', `Player 1 (${isPlayer1Bot ? 'Bot' : 'Human'}) is ready. Waiting for Player 2...`);
                 } else if (player2Ready) {
-                    messageText.textContent = `Player 2 (${isPlayer2Bot ? 'Bot' : 'Human'}) is ready. Waiting for Player 1...`;
+                    showMessageBox('start', `Player 2 (${isPlayer2Bot ? 'Bot' : 'Human'}) is ready. Waiting for Player 1...`);
                 }
             }
 
@@ -1096,9 +1123,13 @@
                 isPlayer2Bot = true;
                 checkBothReady();
             });
+            
+            resumeButton.addEventListener('click', resumeGame);
+            quitButton.addEventListener('click', quitGame);
 
-            showMessageBox('Welcome to Gravity Duel! Click "Ready" to begin.');
+            showMessageBox('start', 'Click "Ready" to Begin');
         });
     </script>
 </body>
 </html>
+
