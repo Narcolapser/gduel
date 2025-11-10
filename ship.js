@@ -102,9 +102,66 @@ export function Ship(canvas, ctx, document, isPlayer1) {
         setTimeout(() => ship.invulnerable = false, invulnerabilitySeconds ?? 0);
     }
 
+    function updateShip(planet, createExplosion, respawnShip) {
+        if (ship.destroyed) return;
+        
+        let dx = planet.x - ship.x;
+        let dy = planet.y - ship.y;
+        let distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > 1) {
+            const gravityConstant = 50; 
+            let gravityForce = gravityConstant / (distance * distance);
+            ship.velocityX += gravityForce * dx / distance;
+            ship.velocityY += gravityForce * dy / distance;
+        }
+        
+        if (ship.thrust > 0) {
+            const thrustMagnitude = 0.002;
+            ship.velocityX += thrustMagnitude * Math.cos(ship.angle);
+            ship.velocityY += thrustMagnitude * Math.sin(ship.angle);
+        }
+
+        ship.x += ship.velocityX;
+        ship.y += ship.velocityY;
+
+        if (distance < planet.radius + 10) {
+            if (!ship.hasBeenPenalized) {
+                    if (ship === player1Ship) {
+                    player1Score = Math.max(0, player1Score - 1);
+                    } else {
+                    player2Score = Math.max(0, player2Score - 1);
+                    }
+                    ship.hasBeenPenalized = true;
+            }
+            
+            ship.destroyed = true;
+            createExplosion(ship.x, ship.y, ship.color);
+            respawnShip(ship);
+        } else {
+            ship.hasBeenPenalized = false;
+        }
+
+        const dragZoneWidth = 100;
+        const canvasCenterX = canvas.width / 2;
+        const canvasCenterY = canvas.height / 2;
+
+        const distToCenter = Math.sqrt(Math.pow(ship.x - canvasCenterX, 2) + Math.pow(ship.y - canvasCenterY, 2));
+        const canvasMaxDist = Math.sqrt(Math.pow(canvas.width / 2, 2) + Math.pow(canvas.height / 2, 2));
+
+        if (distToCenter > canvasMaxDist) {
+            const dragStrength = (distToCenter - canvasMaxDist) / dragZoneWidth;
+            const dragAngle = Math.atan2(canvasCenterY - ship.y, canvasCenterX - ship.x);
+            
+            ship.velocityX += dragStrength * Math.cos(dragAngle) * 0.2;
+            ship.velocityY += dragStrength * Math.sin(dragAngle) * 0.2;
+        }
+    }
+
     ship.drawShip = drawShip;
     ship.updateAmmoContainer = updateAmmoContainer;
     ship.updateFuelDisplay = updateFuelDisplay;
     ship.resetInitialPosition = resetInitialPosition;
+    ship.updateShip = updateShip;
     return ship;
 };
