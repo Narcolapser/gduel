@@ -1,7 +1,8 @@
-export function Ship(ctx, document, isPlayer1) {
+export function Ship(canvas, ctx, document, isPlayer1) {
     const MAX_FUEL_SECONDS = 10;
     const TOTAL_FUEL_LINES = 57;
     const FUEL_PER_FRAME = (1 / (MAX_FUEL_SECONDS * 60)) * 2;
+    const INITIAL_DISTANCE = 100;
 
     const ship = {
         x: 0,
@@ -18,7 +19,8 @@ export function Ship(ctx, document, isPlayer1) {
         missiles: 3,
         invulnerable: false,
         hasBeenPenalized: false,
-        fuel: MAX_FUEL_SECONDS
+        fuel: MAX_FUEL_SECONDS,
+        isPlayer1,
     };
 
     function drawShip() {
@@ -78,8 +80,26 @@ export function Ship(ctx, document, isPlayer1) {
         }
     }
 
+    function resetInitialPosition(invulnerabilitySeconds) {
+        const gravityConstant = 50; 
+        const circularVelocity = 0.9 * Math.sqrt(gravityConstant / INITIAL_DISTANCE); 
+
+        ship.x = canvas.width / 2 + (ship.isPlayer1 ? INITIAL_DISTANCE : -INITIAL_DISTANCE);
+        ship.y = canvas.height / 2;
+        ship.velocityX = 0;
+        ship.velocityY = ship.isPlayer1 ? circularVelocity : -circularVelocity;
+        ship.angle = Math.PI * ship.isPlayer1 ? 1.5 : 4.75;
+        ship.destroyed = false;
+        ship.missiles = 3;
+        ship.fuel = MAX_FUEL_SECONDS;
+        ship.invulnerable = true;
+        ship.hasBeenPenalized = false;
+        setTimeout(() => ship.invulnerable = false, invulnerabilitySeconds ?? 0);
+    }
+
     ship.drawShip = drawShip;
     ship.updateAmmoContainer = updateAmmoContainer;
     ship.updateFuelDisplay = updateFuelDisplay;
+    ship.resetInitialPosition = resetInitialPosition;
     return ship;
 };

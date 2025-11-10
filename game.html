@@ -346,8 +346,8 @@
                 color: '#ffffff'
             };
 
-            const player1Ship = Ship(ctx, document, true);
-            const player2Ship = Ship(ctx, document, false);
+            const player1Ship = Ship(canvas, ctx, document, true);
+            const player2Ship = Ship(canvas, ctx, document, false);
 
             let missiles = [];
             let explosions = [];
@@ -446,8 +446,10 @@
                     ship.missiles = 3;
                     ship.fuel = MAX_FUEL_SECONDS;
                     ship.hasBeenPenalized = false;
+
+                    console.log(`is player 1?: ${ship.isPlayer1}`);
                     
-                    if (ship === player1Ship) {
+                    if (ship.isPlayer1) {
                         ship.x = canvas.width / 2 - initialDistance;
                         ship.y = canvas.height / 2;
                         ship.velocityX = 0;
@@ -473,32 +475,8 @@
             }
             
             function resetInitialPositions() {
-                const gravityConstant = 50; 
-                const circularVelocity = 0.9 * Math.sqrt(gravityConstant / initialDistance); 
-
-                player1Ship.x = canvas.width / 2 - initialDistance;
-                player1Ship.y = canvas.height / 2;
-                player1Ship.velocityX = 0;
-                player1Ship.velocityY = -circularVelocity;
-                player1Ship.angle = Math.PI * 1.5;
-                player1Ship.destroyed = false;
-                player1Ship.missiles = 3;
-                player1Ship.fuel = MAX_FUEL_SECONDS;
-                player1Ship.invulnerable = true;
-                player1Ship.hasBeenPenalized = false;
-                setTimeout(() => player1Ship.invulnerable = false, 3000);
-
-                player2Ship.x = canvas.width / 2 + initialDistance;
-                player2Ship.y = canvas.height / 2;
-                player2Ship.velocityX = 0;
-                player2Ship.velocityY = circularVelocity;
-                player2Ship.angle = Math.PI * 0.5;
-                player2Ship.destroyed = false;
-                player2Ship.missiles = 3;
-                player2Ship.fuel = MAX_FUEL_SECONDS;
-                player2Ship.invulnerable = true;
-                player2Ship.hasBeenPenalized = false;
-                setTimeout(() => player2Ship.invulnerable = false, 3000);
+                player1Ship.resetInitialPosition();
+                player2Ship.resetInitialPosition();
 
                 missiles = [];
                 explosions = [];
