@@ -21,6 +21,7 @@ export function Ship(canvas, ctx, document, isPlayer1) {
         hasBeenPenalized: false,
         fuel: MAX_FUEL_SECONDS,
         isPlayer1,
+        score: 0,
     };
 
     function drawShip() {
