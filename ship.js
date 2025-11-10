@@ -85,7 +85,6 @@ export function Ship(canvas, ctx, document, isPlayer1) {
         ship.destroyed = false;
         ship.missiles = 3;
         ship.fuel = MAX_FUEL_SECONDS;
-        ship.hasBeenPenalized = false;
 
         const gravityConstant = 50; 
         const circularVelocity = 0.9 * Math.sqrt(gravityConstant / INITIAL_DISTANCE); 
@@ -128,11 +127,7 @@ export function Ship(canvas, ctx, document, isPlayer1) {
 
         if (distance < planet.radius + 10) {
             if (!ship.hasBeenPenalized) {
-                    if (ship === player1Ship) {
-                    player1Score = Math.max(0, player1Score - 1);
-                    } else {
-                    player2Score = Math.max(0, player2Score - 1);
-                    }
+                    ship.score = Math.max(0, ship.score - 1);
                     ship.hasBeenPenalized = true;
             }
             
