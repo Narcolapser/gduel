@@ -425,10 +425,6 @@
             }
             
             function respawnShip(ship) {
-                if (player1Score >= WINNING_SCORE || player2Score >= WINNING_SCORE) {
-                    return;
-                }
-
                 setTimeout(() => {
                     missiles.forEach(missile => {
                         if (missile.parent === ship) {
@@ -437,9 +433,6 @@
                         }
                     });
                 }, 1500);
-
-                const gravityConstant = 50; 
-                const circularVelocity = 0.9 * Math.sqrt(gravityConstant / initialDistance);
                 
                 setTimeout(() => { ship.resetInitialPosition(3000) }, 3000);
             }
