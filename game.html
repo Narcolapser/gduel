@@ -441,40 +441,13 @@
                 const gravityConstant = 50; 
                 const circularVelocity = 0.9 * Math.sqrt(gravityConstant / initialDistance);
                 
-                setTimeout(() => {
-                    ship.destroyed = false;
-                    ship.missiles = 3;
-                    ship.fuel = MAX_FUEL_SECONDS;
-                    ship.hasBeenPenalized = false;
-
-                    console.log(`is player 1?: ${ship.isPlayer1}`);
-                    
-                    if (ship.isPlayer1) {
-                        ship.x = canvas.width / 2 - initialDistance;
-                        ship.y = canvas.height / 2;
-                        ship.velocityX = 0;
-                        ship.velocityY = -circularVelocity;
-                        ship.angle = Math.PI * 1.5;
-                    } else {
-                        ship.x = canvas.width / 2 + initialDistance;
-                        ship.y = canvas.height / 2;
-                        ship.velocityX = 0;
-                        ship.velocityY = circularVelocity;
-                        ship.angle = Math.PI * 0.5;
-                    }
-
-                    ship.invulnerable = true;
-                    setTimeout(() => {
-                        ship.invulnerable = false;
-                    }, 3000);
-                    
-                    updateAmmoDisplay();
-                    player1Ship.updateFuelDisplay(fuelDisplayP1);
-                    player2Ship.updateFuelDisplay(fuelDisplayP2);
-                }, 3000);
+                setTimeout(() => { ship.resetInitialPosition(3000) }, 3000);
             }
-            
-            function resetInitialPositions() {
+
+            function resetGame() {
+                player1Score = 0;
+                player2Score = 0;
+                
                 player1Ship.resetInitialPosition();
                 player2Ship.resetInitialPosition();
 
@@ -485,12 +458,6 @@
                 player2Ship.updateFuelDisplay(fuelDisplayP2);
                 updateScoreDisplay();
                 noFuelTimer = null;
-            }
-
-            function resetGame() {
-                player1Score = 0;
-                player2Score = 0;
-                resetInitialPositions();
             }
 
             function checkWinCondition() {
@@ -554,7 +521,6 @@
                 isPlayer1Bot = false;
                 isPlayer2Bot = false;
                 updateScoreDisplay();
-                resetInitialPositions();
                 showMessageBox('start', "Welcome to Gravity Duel! Click \"Ready\" to begin.");
             }
             

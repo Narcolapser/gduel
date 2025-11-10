@@ -81,6 +81,11 @@ export function Ship(canvas, ctx, document, isPlayer1) {
     }
 
     function resetInitialPosition(invulnerabilitySeconds) {
+        ship.destroyed = false;
+        ship.missiles = 3;
+        ship.fuel = MAX_FUEL_SECONDS;
+        ship.hasBeenPenalized = false;
+
         const gravityConstant = 50; 
         const circularVelocity = 0.9 * Math.sqrt(gravityConstant / INITIAL_DISTANCE); 
 
