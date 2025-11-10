@@ -299,6 +299,7 @@
 
     <script type="module">
         import { Ship } from './ship.js';
+        import { Missile } from './missile.js';
 
         document.addEventListener('DOMContentLoaded', () => {
             const canvas = document.getElementById('gameCanvas');
@@ -522,18 +523,6 @@
                 resetGame();
                 gameLoop();
             }
-
-            function drawMissile(missile) {
-                if (missile.destroyed) return;
-                ctx.save();
-                ctx.translate(missile.x, missile.y);
-                ctx.fillStyle = missile.color;
-                ctx.shadowColor = missile.color;
-                ctx.shadowBlur = 10;
-                ctx.fillRect(-2, -2, 4, 4);
-                ctx.restore();
-                ctx.shadowBlur = 0;
-            }
             
             function drawOffscreenIndicator(ship) {
                 const buffer = 10;
@@ -596,28 +585,14 @@
                 drawOffscreenIndicator(player1Ship);
                 drawOffscreenIndicator(player2Ship);
 
-                missiles.forEach(drawMissile);
+                missiles.forEach((m) => m.drawMissile());
                 explosions.forEach(drawExplosion);
             }
             
             function fireMissile(ship) {
                 if (ship.missiles > 0) {
                     ship.missiles--;
-                    
-                    const missileSpeed = 1;
-                    const missileX = ship.x + (ship.height / 2) * Math.cos(ship.angle);
-                    const missileY = ship.y + (ship.height / 2) * Math.sin(ship.angle);
-
-                    missiles.push({
-                        x: missileX,
-                        y: missileY,
-                        velocityX: ship.velocityX + missileSpeed * Math.cos(ship.angle),
-                        velocityY: ship.velocityY + missileSpeed * Math.sin(ship.angle),
-                        color: ship.color,
-                        destroyed: false,
-                        parent: ship,
-                        timestamp: Date.now()
-                    });
+                    missiles.push(Missile(ctx, ship));
                 }
             }
 
