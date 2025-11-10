@@ -379,11 +379,6 @@
                 player2Ship.updateAmmoContainer('missile-icons-p2');
             }
 
-            function updateScoreDisplay() {
-                scoreP1.textContent = player1Score;
-                scoreP2.textContent = player2Score;
-            }
-
             function createExplosion(x, y, color) {
                 const particleCount = 100;
                 const particles = [];
@@ -446,10 +441,6 @@
 
                 missiles = [];
                 explosions = [];
-                updateAmmoDisplay();
-                player1Ship.updateFuelDisplay(fuelDisplayP1);
-                player2Ship.updateFuelDisplay(fuelDisplayP2);
-                updateScoreDisplay();
                 noFuelTimer = null;
             }
 
@@ -513,7 +504,6 @@
                 player2Ready = false;
                 isPlayer1Bot = false;
                 isPlayer2Bot = false;
-                updateScoreDisplay();
                 showMessageBox('start', "Welcome to Gravity Duel! Click \"Ready\" to begin.");
             }
             
@@ -646,7 +636,6 @@
                             player2Score = Math.max(0, player2Score - 1);
                          }
                          ship.hasBeenPenalized = true;
-                         updateScoreDisplay();
                     }
                     
                     ship.destroyed = true;
@@ -749,7 +738,6 @@
                                 player2Score++;
                             }
                             respawnShip(otherShip);
-                            updateScoreDisplay();
                             checkWinCondition();
                         }
                     }
@@ -918,14 +906,16 @@
                             createExplosion(player2Ship.x, player2Ship.y, player2Ship.color);
                             respawnShip(player1Ship);
                             respawnShip(player2Ship);
-                        }
-                        updateScoreDisplay();
+                        }        
+
                         checkWinCondition();
                     }
                 }
 
                 updateMissiles();
                 updateExplosions();
+                scoreP1.textContent = player1Score;
+                scoreP2.textContent = player2Score;
                 player1Ship.updateFuelDisplay(fuelDisplayP1);
                 player2Ship.updateFuelDisplay(fuelDisplayP2);
                 draw();
