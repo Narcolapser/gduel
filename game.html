@@ -298,7 +298,7 @@
     </div>
 
     <script type="module">
-        import { drawShip, updateAmmoContainer, updateFuelDisplay } from './ship.js';
+        import { Ship } from './ship.js';
 
         document.addEventListener('DOMContentLoaded', () => {
             const canvas = document.getElementById('gameCanvas');
@@ -346,41 +346,8 @@
                 color: '#ffffff'
             };
 
-            const player1Ship = {
-                x: 0,
-                y: 0,
-                width: 10,
-                height: 20,
-                angle: 0,
-                thrust: 0,
-                rotationSpeed: 0.025,
-                velocityX: 0,
-                velocityY: 0,
-                color: '#00ff00',
-                destroyed: false,
-                missiles: 3,
-                invulnerable: false,
-                hasBeenPenalized: false,
-                fuel: MAX_FUEL_SECONDS
-            };
-
-            const player2Ship = {
-                x: 0,
-                y: 0,
-                width: 10,
-                height: 20,
-                angle: Math.PI,
-                thrust: 0,
-                rotationSpeed: 0.025,
-                velocityX: 0,
-                velocityY: 0,
-                color: '#ff0000',
-                destroyed: false,
-                missiles: 3,
-                invulnerable: false,
-                hasBeenPenalized: false,
-                fuel: MAX_FUEL_SECONDS
-            };
+            const player1Ship = Ship(ctx, document, true);
+            const player2Ship = Ship(ctx, document, false);
 
             let missiles = [];
             let explosions = [];
@@ -408,8 +375,8 @@
             });
 
             function updateAmmoDisplay() {
-                updateAmmoContainer(player1Ship, 'missile-icons-p1', document);
-                updateAmmoContainer(player2Ship, 'missile-icons-p2', document);
+                player1Ship.updateAmmoContainer('missile-icons-p1');
+                player2Ship.updateAmmoContainer('missile-icons-p2');
             }
 
             function updateScoreDisplay() {
@@ -500,8 +467,8 @@
                     }, 3000);
                     
                     updateAmmoDisplay();
-                    updateFuelDisplay(player1Ship, fuelDisplayP1, document);
-                    updateFuelDisplay(player2Ship, fuelDisplayP2, document);
+                    player1Ship.updateFuelDisplay(fuelDisplayP1);
+                    player2Ship.updateFuelDisplay(fuelDisplayP2);
                 }, 3000);
             }
             
@@ -536,8 +503,8 @@
                 missiles = [];
                 explosions = [];
                 updateAmmoDisplay();
-                updateFuelDisplay(player1Ship, fuelDisplayP1, document);
-                updateFuelDisplay(player2Ship, fuelDisplayP2, document);
+                player1Ship.updateFuelDisplay(fuelDisplayP1);
+                player2Ship.updateFuelDisplay(fuelDisplayP2);
                 updateScoreDisplay();
                 noFuelTimer = null;
             }
@@ -701,8 +668,8 @@
                 ctx.fill();
                 ctx.shadowBlur = 0;
 
-                drawShip(player1Ship, ctx);
-                drawShip(player2Ship, ctx);
+                player1Ship.drawShip();
+                player2Ship.drawShip();
                 
                 drawOffscreenIndicator(player1Ship);
                 drawOffscreenIndicator(player2Ship);
@@ -1022,8 +989,8 @@
 
                 updateMissiles();
                 updateExplosions();
-                updateFuelDisplay(player1Ship, fuelDisplayP1, document);
-                updateFuelDisplay(player2Ship, fuelDisplayP2, document);
+                player1Ship.updateFuelDisplay(fuelDisplayP1);
+                player2Ship.updateFuelDisplay(fuelDisplayP2);
                 draw();
                 animationFrameId = requestAnimationFrame(gameLoop);
             }
