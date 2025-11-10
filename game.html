@@ -374,11 +374,6 @@
                 keys[e.key.toLowerCase()] = false;
             });
 
-            function updateAmmoDisplay() {
-                player1Ship.updateAmmoContainer('missile-icons-p1');
-                player2Ship.updateAmmoContainer('missile-icons-p2');
-            }
-
             function createExplosion(x, y, color) {
                 const particleCount = 100;
                 const particles = [];
@@ -664,7 +659,6 @@
             function fireMissile(ship) {
                 if (ship.missiles > 0) {
                     ship.missiles--;
-                    updateAmmoDisplay();
                     
                     const missileSpeed = 1;
                     const missileX = ship.x + (ship.height / 2) * Math.cos(ship.angle);
@@ -695,7 +689,6 @@
                         missile.destroyed = true;
                         createExplosion(missile.x, missile.y, missile.color);
                         missile.parent.missiles++;
-                        updateAmmoDisplay();
                         return;
                     }
 
@@ -712,7 +705,6 @@
                     if (distance < planet.radius + 5) {
                         missile.destroyed = true;
                         missile.parent.missiles++;
-                        updateAmmoDisplay();
                     }
 
                     const canvasMaxDist = Math.sqrt(Math.pow(canvas.width / 2, 2) + Math.pow(canvas.height / 2, 2));
@@ -720,7 +712,6 @@
                     if (distToCenter > canvasMaxDist + 50) {
                          missile.destroyed = true;
                          missile.parent.missiles++;
-                         updateAmmoDisplay();
                     }
 
                     const otherShip = missile.parent === player1Ship ? player2Ship : player1Ship;
@@ -731,7 +722,6 @@
                             missile.destroyed = true;
                             createExplosion(otherShip.x, otherShip.y, otherShip.color);
                             missile.parent.missiles++;
-                            updateAmmoDisplay();
                             if (missile.parent === player1Ship) {
                                 player1Score++;
                             } else {
@@ -755,7 +745,6 @@
                                     createExplosion(missile.x, missile.y, missile.color);
                                     missile.parent.missiles++;
                                     otherMissile.parent.missiles++;
-                                    updateAmmoDisplay();
                                 }
                             }
                         }
@@ -918,6 +907,8 @@
                 scoreP2.textContent = player2Score;
                 player1Ship.updateFuelDisplay(fuelDisplayP1);
                 player2Ship.updateFuelDisplay(fuelDisplayP2);
+                player1Ship.updateAmmoContainer('missile-icons-p1');
+                player2Ship.updateAmmoContainer('missile-icons-p2');
                 draw();
                 animationFrameId = requestAnimationFrame(gameLoop);
             }
