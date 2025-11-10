@@ -576,6 +576,13 @@
 
                 player1Ship.drawShip();
                 player2Ship.drawShip();
+
+                scoreP1.textContent = player1Ship.score;
+                scoreP2.textContent = player2Ship.score;
+                player1Ship.updateFuelDisplay(fuelDisplayP1);
+                player2Ship.updateFuelDisplay(fuelDisplayP2);
+                player1Ship.updateAmmoContainer('missile-icons-p1');
+                player2Ship.updateAmmoContainer('missile-icons-p2');
                 
                 drawOffscreenIndicator(player1Ship);
                 drawOffscreenIndicator(player2Ship);
@@ -589,11 +596,6 @@
                     ship.missiles--;
                     missiles.push(Missile(ctx, canvas, ship));
                 }
-            }
-
-            function updateMissiles() {
-                missiles.forEach(m => m.updateMissle(planet, missiles, [player1Ship, player2Ship], createExplosion, respawnShip));
-                missiles = missiles.filter(m => !m.destroyed);
             }
 
             function aiLogic(bot, target) {
@@ -743,14 +745,10 @@
                     }
                 }
 
-                updateMissiles();
+                missiles.forEach(m => m.updateMissle(planet, missiles, [player1Ship, player2Ship], createExplosion, respawnShip));
+                missiles = missiles.filter(m => !m.destroyed);
+
                 updateExplosions();
-                scoreP1.textContent = player1Ship.score;
-                scoreP2.textContent = player2Ship.score;
-                player1Ship.updateFuelDisplay(fuelDisplayP1);
-                player2Ship.updateFuelDisplay(fuelDisplayP2);
-                player1Ship.updateAmmoContainer('missile-icons-p1');
-                player2Ship.updateAmmoContainer('missile-icons-p2');
                 draw();
                 animationFrameId = requestAnimationFrame(gameLoop);
             }
