@@ -45,7 +45,7 @@ export function Ship(canvas, ctx, document, isPlayer1) {
         ctx.closePath();
         ctx.fill();
 
-        if (ship.thrust !== 0) {
+        if (ship.thrusted) {
             ctx.fillStyle = '#ff8000'
             ctx.beginPath();
             ctx.moveTo(-ship.height / 2, 0);
@@ -116,10 +116,13 @@ export function Ship(canvas, ctx, document, isPlayer1) {
             ship.velocityY += gravityForce * dy / distance;
         }
         
-        if (ship.thrust > 0) {
-            const thrustMagnitude = 0.002;
-            ship.velocityX += thrustMagnitude * Math.cos(ship.angle);
-            ship.velocityY += thrustMagnitude * Math.sin(ship.angle);
+        if (ship.thrust !== 0) {
+            ship.velocityX += ship.thrust * Math.cos(ship.angle);
+            ship.velocityY += ship.thrust * Math.sin(ship.angle);
+            ship.thrusted = true;
+            ship.thrust = 0;
+        } else {
+            ship.thrusted = false;
         }
 
         ship.x += ship.velocityX;
@@ -154,10 +157,18 @@ export function Ship(canvas, ctx, document, isPlayer1) {
         }
     }
 
+    function engageThrust() {
+        if (ship.fuel) {
+            ship.thrust = 0.002;
+            ship.fuel -= FUEL_PER_FRAME;
+        }
+    }
+
     ship.drawShip = drawShip;
     ship.updateAmmoContainer = updateAmmoContainer;
     ship.updateFuelDisplay = updateFuelDisplay;
     ship.resetInitialPosition = resetInitialPosition;
     ship.updateShip = updateShip;
+    ship.engageThrust = engageThrust;
     return ship;
 };

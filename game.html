@@ -621,14 +621,7 @@
                 // Player 1 Logic
                 if (!isPlayer1Bot) {
                     if (keys['w']) {
-                        if (player1Ship.fuel > 0) {
-                            player1Ship.thrust = 0.002;
-                            player1Ship.fuel -= FUEL_PER_FRAME;
-                        } else {
-                            player1Ship.thrust = 0;
-                        }
-                    } else {
-                        player1Ship.thrust = 0;
+                        player1Ship.engageThrust();
                     }
                     if (keys['a']) player1Ship.angle -= player1Ship.rotationSpeed;
                     if (keys['d']) player1Ship.angle += player1Ship.rotationSpeed;
@@ -643,14 +636,7 @@
                 // Player 2 Logic
                 if (!isPlayer2Bot) {
                     if (keys['arrowup']) {
-                        if (player2Ship.fuel > 0) {
-                            player2Ship.thrust = 0.002;
-                            player2Ship.fuel -= FUEL_PER_FRAME;
-                        } else {
-                            player2Ship.thrust = 0;
-                        }
-                    } else {
-                        player2Ship.thrust = 0;
+                        player2Ship.engageThrust();
                     }
                     if (keys['arrowleft']) player2Ship.angle -= player2Ship.rotationSpeed;
                     if (keys['arrowright']) player2Ship.angle += player2Ship.rotationSpeed;

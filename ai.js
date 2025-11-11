@@ -25,13 +25,7 @@ export function basicBot(bot, target, FUEL_PER_FRAME, fireMissile) {
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance > preferredDistance && bot.fuel > 0) {
-        bot.thrust = 0.002;
-        bot.fuel -= FUEL_PER_FRAME;
-    } else if (distance < preferredDistance && bot.fuel > 0) {
-            bot.thrust = -0.002;
-            bot.fuel -= FUEL_PER_FRAME;
-    } else {
-        bot.thrust = 0;
+        bot.engageThrust();
     }
 
     const angleTolerance = 0.1;
