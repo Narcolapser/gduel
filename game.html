@@ -620,11 +620,9 @@
 
                 // Player 1 Logic
                 if (!isPlayer1Bot) {
-                    if (keys['w']) {
-                        player1Ship.engageThrust();
-                    }
-                    if (keys['a']) player1Ship.angle -= player1Ship.rotationSpeed;
-                    if (keys['d']) player1Ship.angle += player1Ship.rotationSpeed;
+                    if (keys['w']) player1Ship.engageThrust();
+                    if (keys['a']) player1Ship.rotateLeft();
+                    if (keys['d']) player1Ship.rotateRight();
                     if (keys['s']) {
                         fireMissile(player1Ship);
                         keys['s'] = false;
@@ -635,11 +633,9 @@
 
                 // Player 2 Logic
                 if (!isPlayer2Bot) {
-                    if (keys['arrowup']) {
-                        player2Ship.engageThrust();
-                    }
-                    if (keys['arrowleft']) player2Ship.angle -= player2Ship.rotationSpeed;
-                    if (keys['arrowright']) player2Ship.angle += player2Ship.rotationSpeed;
+                    if (keys['arrowup']) player2Ship.engageThrust();
+                    if (keys['arrowleft']) player2Ship.rotateLeft();
+                    if (keys['arrowright']) player2Ship.rotateRight();
                     if (keys['arrowdown']) {
                         fireMissile(player2Ship);
                         keys['arrowdown'] = false;

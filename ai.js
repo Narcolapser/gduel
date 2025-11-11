@@ -15,9 +15,9 @@ export function basicBot(bot, target, FUEL_PER_FRAME, fireMissile) {
 
     if (Math.abs(angleDiff) > 0.05) {
         if (angleDiff > 0) {
-            bot.angle += bot.rotationSpeed;
+            bot.rotateRight();
         } else {
-            bot.angle -= bot.rotationSpeed;
+            bot.rotateLeft();
         }
     }
 

@@ -164,11 +164,21 @@ export function Ship(canvas, ctx, document, isPlayer1) {
         }
     }
 
+    function rotateLeft() {
+        ship.angle -= ship.rotationSpeed;
+    }
+
+    function rotateRight() {
+        ship.angle += ship.rotationSpeed;
+    }
+
     ship.drawShip = drawShip;
     ship.updateAmmoContainer = updateAmmoContainer;
     ship.updateFuelDisplay = updateFuelDisplay;
     ship.resetInitialPosition = resetInitialPosition;
     ship.updateShip = updateShip;
     ship.engageThrust = engageThrust;
+    ship.rotateLeft = rotateLeft;
+    ship.rotateRight = rotateRight;
     return ship;
 };
