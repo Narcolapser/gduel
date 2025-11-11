@@ -297,7 +297,12 @@
         Press Y to pause/resume. Press N to quit.
     </div>
 
-    <script>
+    <script type="module">
+        import { Ship } from './ship.js';
+        import { Missile } from './missile.js';
+        import { basicBot } from './ai.js';
+        import { UserInput } from './input.js';
+
         document.addEventListener('DOMContentLoaded', () => {
             const canvas = document.getElementById('gameCanvas');
             const ctx = canvas.getContext('2d');
@@ -313,8 +318,8 @@
             const pauseButtonContainer = document.getElementById('pause-button-container');
             const scoreP1 = document.getElementById('score-p1');
             const scoreP2 = document.getElementById('score-p2');
-            const fuelDisplayP1 = document.getElementById('fuel-display-p1');
-            const fuelDisplayP2 = document.getElementById('fuel-display-p2');
+            const fuelDisplayP1 = 'fuel-display-p1';
+            const fuelDisplayP2 = 'fuel-display-p2';
 
             let isGameRunning = false;
             let isGamePaused = false;
@@ -327,15 +332,9 @@
 
             const WINNING_SCORE = 5;
             const MAX_FUEL_SECONDS = 10;
-            const TOTAL_FUEL_LINES = 57;
             const FUEL_PER_FRAME = (1 / (MAX_FUEL_SECONDS * 60)) * 2;
-            const MISSILE_LIFETIME = 30000;
             const NO_FUEL_TIMEOUT = 30000;
-            const MISSILE_COLLISION_GRACE_PERIOD = 1000;
-            
-            let player1Score = 0;
-            let player2Score = 0;
-            const initialDistance = 100;
+
             let noFuelTimer = null;
 
             const planet = {
@@ -345,41 +344,10 @@
                 color: '#ffffff'
             };
 
-            const player1Ship = {
-                x: 0,
-                y: 0,
-                width: 10,
-                height: 20,
-                angle: 0,
-                thrust: 0,
-                rotationSpeed: 0.025,
-                velocityX: 0,
-                velocityY: 0,
-                color: '#00ff00',
-                destroyed: false,
-                missiles: 3,
-                invulnerable: false,
-                hasBeenPenalized: false,
-                fuel: MAX_FUEL_SECONDS
-            };
-
-            const player2Ship = {
-                x: 0,
-                y: 0,
-                width: 10,
-                height: 20,
-                angle: Math.PI,
-                thrust: 0,
-                rotationSpeed: 0.025,
-                velocityX: 0,
-                velocityY: 0,
-                color: '#ff0000',
-                destroyed: false,
-                missiles: 3,
-                invulnerable: false,
-                hasBeenPenalized: false,
-                fuel: MAX_FUEL_SECONDS
-            };
+            const player1Ship = Ship(canvas, ctx, document, true);
+            const player1Input = UserInput(player1Ship, 'w', 'a', 'd', 's');
+            const player2Ship = Ship(canvas, ctx, document, false);
+            const player2Input = UserInput(player2Ship, 'arrowup', 'arrowleft', 'arrowright', 'arrowdown');
 
             let missiles = [];
             let explosions = [];
@@ -405,40 +373,6 @@
             document.addEventListener('keyup', (e) => {
                 keys[e.key.toLowerCase()] = false;
             });
-
-            function updateAmmoDisplay() {
-                const p1Container = document.getElementById('missile-icons-p1');
-                const p2Container = document.getElementById('missile-icons-p2');
-
-                p1Container.innerHTML = '';
-                for (let i = 0; i < player1Ship.missiles; i++) {
-                    const missileDiv = document.createElement('div');
-                    missileDiv.className = 'missile-icon';
-                    p1Container.appendChild(missileDiv);
-                }
-
-                p2Container.innerHTML = '';
-                for (let i = 0; i < player2Ship.missiles; i++) {
-                    const missileDiv = document.createElement('div');
-                    missileDiv.className = 'missile-icon';
-                    p2Container.appendChild(missileDiv);
-                }
-            }
-            
-            function updateFuelDisplay(ship, fuelElement) {
-                const fuelLines = Math.max(0, Math.floor((ship.fuel / MAX_FUEL_SECONDS) * TOTAL_FUEL_LINES));
-                fuelElement.innerHTML = '';
-                for (let i = 0; i < fuelLines; i++) {
-                    const fuelLineDiv = document.createElement('div');
-                    fuelLineDiv.className = 'fuel-line';
-                    fuelElement.appendChild(fuelLineDiv);
-                }
-            }
-
-            function updateScoreDisplay() {
-                scoreP1.textContent = player1Score;
-                scoreP2.textContent = player2Score;
-            }
 
             function createExplosion(x, y, color) {
                 const particleCount = 100;
@@ -479,100 +413,21 @@
                 });
                 explosions = explosions.filter(e => e.particles.length > 0);
             }
-            
-            function respawnShip(ship) {
-                if (player1Score >= WINNING_SCORE || player2Score >= WINNING_SCORE) {
-                    return;
-                }
 
-                setTimeout(() => {
-                    missiles.forEach(missile => {
-                        if (missile.parent === ship) {
-                            createExplosion(missile.x, missile.y, missile.color);
-                            missile.destroyed = true;
-                        }
-                    });
-                }, 1500);
-
-                const gravityConstant = 50; 
-                const circularVelocity = 0.9 * Math.sqrt(gravityConstant / initialDistance);
+            function resetGame() {
+                player1Ship.score = 0;
+                player2Ship.score = 0;
                 
-                setTimeout(() => {
-                    ship.destroyed = false;
-                    ship.missiles = 3;
-                    ship.fuel = MAX_FUEL_SECONDS;
-                    ship.hasBeenPenalized = false;
-                    
-                    if (ship === player1Ship) {
-                        ship.x = canvas.width / 2 - initialDistance;
-                        ship.y = canvas.height / 2;
-                        ship.velocityX = 0;
-                        ship.velocityY = -circularVelocity;
-                        ship.angle = Math.PI * 1.5;
-                    } else {
-                        ship.x = canvas.width / 2 + initialDistance;
-                        ship.y = canvas.height / 2;
-                        ship.velocityX = 0;
-                        ship.velocityY = circularVelocity;
-                        ship.angle = Math.PI * 0.5;
-                    }
-
-                    ship.invulnerable = true;
-                    setTimeout(() => {
-                        ship.invulnerable = false;
-                    }, 3000);
-                    
-                    updateAmmoDisplay();
-                    updateFuelDisplay(player1Ship, fuelDisplayP1);
-                    updateFuelDisplay(player2Ship, fuelDisplayP2);
-                }, 3000);
-            }
-            
-            function resetInitialPositions() {
-                const gravityConstant = 50; 
-                const circularVelocity = 0.9 * Math.sqrt(gravityConstant / initialDistance); 
-
-                player1Ship.x = canvas.width / 2 - initialDistance;
-                player1Ship.y = canvas.height / 2;
-                player1Ship.velocityX = 0;
-                player1Ship.velocityY = -circularVelocity;
-                player1Ship.angle = Math.PI * 1.5;
-                player1Ship.destroyed = false;
-                player1Ship.missiles = 3;
-                player1Ship.fuel = MAX_FUEL_SECONDS;
-                player1Ship.invulnerable = true;
-                player1Ship.hasBeenPenalized = false;
-                setTimeout(() => player1Ship.invulnerable = false, 3000);
-
-                player2Ship.x = canvas.width / 2 + initialDistance;
-                player2Ship.y = canvas.height / 2;
-                player2Ship.velocityX = 0;
-                player2Ship.velocityY = circularVelocity;
-                player2Ship.angle = Math.PI * 0.5;
-                player2Ship.destroyed = false;
-                player2Ship.missiles = 3;
-                player2Ship.fuel = MAX_FUEL_SECONDS;
-                player2Ship.invulnerable = true;
-                player2Ship.hasBeenPenalized = false;
-                setTimeout(() => player2Ship.invulnerable = false, 3000);
+                player1Ship.resetInitialPosition();
+                player2Ship.resetInitialPosition();
 
                 missiles = [];
                 explosions = [];
-                updateAmmoDisplay();
-                updateFuelDisplay(player1Ship, fuelDisplayP1);
-                updateFuelDisplay(player2Ship, fuelDisplayP2);
-                updateScoreDisplay();
                 noFuelTimer = null;
             }
 
-            function resetGame() {
-                player1Score = 0;
-                player2Score = 0;
-                resetInitialPositions();
-            }
-
             function checkWinCondition() {
-                if (player1Score >= WINNING_SCORE || player2Score >= WINNING_SCORE) {
+                if (player1Ship.score >= WINNING_SCORE || player2Ship.score >= WINNING_SCORE) {
                     endGame();
                 }
             }
@@ -585,10 +440,10 @@
                 const player1Type = isPlayer1Bot ? 'Bot' : 'Human';
                 const player2Type = isPlayer2Bot ? 'Bot' : 'Human';
 
-                if (player1Score >= WINNING_SCORE) {
-                    finalMessage = `Player 1 (Green, ${player1Type}) wins the match with ${player1Score} points!`;
-                } else if (player2Score >= WINNING_SCORE) {
-                    finalMessage = `Player 2 (Red, ${player2Type}) wins the match with ${player2Score} points!`;
+                if (player1Ship.score >= WINNING_SCORE) {
+                    finalMessage = `Player 1 (Green, ${player1Type}) wins the match with ${player1Ship.score} points!`;
+                } else if (player2Ship.score >= WINNING_SCORE) {
+                    finalMessage = `Player 2 (Red, ${player2Type}) wins the match with ${player2Ship.score} points!`;
                 }
 
                 showMessageBox('win/loss', finalMessage);
@@ -625,14 +480,12 @@
                 isGameRunning = false;
                 isGamePaused = false;
                 cancelAnimationFrame(animationFrameId);
-                player1Score = 0;
-                player2Score = 0;
+                player1Ship.score = 0;
+                player2Ship.score = 0;
                 player1Ready = false;
                 player2Ready = false;
                 isPlayer1Bot = false;
                 isPlayer2Bot = false;
-                updateScoreDisplay();
-                resetInitialPositions();
                 showMessageBox('start', "Welcome to Gravity Duel! Click \"Ready\" to begin.");
             }
             
@@ -657,98 +510,6 @@
                 gameLoop();
             }
 
-            function drawShip(ship) {
-                if (ship.destroyed) return;
-                ctx.save();
-                ctx.translate(ship.x, ship.y);
-                ctx.rotate(ship.angle);
-
-                ctx.fillStyle = ship.color;
-                ctx.shadowColor = ship.color;
-                ctx.shadowBlur = 15;
-
-                if (ship.invulnerable) {
-                    ctx.globalAlpha = Math.abs(Math.sin(Date.now() / 150));
-                }
-
-                ctx.beginPath();
-                ctx.moveTo(ship.height / 2, 0);
-                ctx.lineTo(-ship.height / 2, -ship.width / 2);
-                ctx.lineTo(-ship.height / 2, ship.width / 2);
-                ctx.closePath();
-                ctx.fill();
-
-                if (ship.thrust !== 0) {
-                    ctx.fillStyle = '#ff8000'
-                    ctx.beginPath();
-                    ctx.moveTo(-ship.height / 2, 0);
-                    ctx.lineTo(-ship.height / 1.5, -ship.width / 2);
-                    ctx.lineTo(-ship.height / 1.5, ship.width / 2);
-                    ctx.closePath();
-                    ctx.fill()
-                }
-
-                ctx.restore();
-                ctx.globalAlpha = 1.0;
-                ctx.shadowBlur = 0;
-            }
-
-            function drawMissile(missile) {
-                if (missile.destroyed) return;
-                ctx.save();
-                ctx.translate(missile.x, missile.y);
-                ctx.fillStyle = missile.color;
-                ctx.shadowColor = missile.color;
-                ctx.shadowBlur = 10;
-                ctx.fillRect(-2, -2, 4, 4);
-                ctx.restore();
-                ctx.shadowBlur = 0;
-            }
-            
-            function drawOffscreenIndicator(ship) {
-                const buffer = 10;
-                const canvasLeft = buffer;
-                const canvasRight = canvas.width - buffer;
-                const canvasTop = buffer;
-                const canvasBottom = canvas.height - buffer;
-
-                if (ship.x > canvas.width || ship.x < 0 || ship.y > canvas.height || ship.y < 0) {
-                    const dx = ship.x - canvas.width / 2;
-                    const dy = ship.y - canvas.height / 2;
-                    const angle = Math.atan2(dy, dx);
-
-                    let indicatorX, indicatorY;
-                    let m = dy / dx;
-
-                    if (Math.abs(dy) > Math.abs(dx)) {
-                        if (dy > 0) {
-                            indicatorY = canvasBottom;
-                            indicatorX = canvas.width / 2 + (canvasBottom - canvas.height / 2) / m;
-                        } else {
-                            indicatorY = canvasTop;
-                            indicatorX = canvas.width / 2 + (canvasTop - canvas.height / 2) / m;
-                        }
-                    } else {
-                        if (dx > 0) {
-                            indicatorX = canvasRight;
-                            indicatorY = canvas.height / 2 + m * (canvasRight - canvas.width / 2);
-                        } else {
-                            indicatorX = canvasLeft;
-                            indicatorY = canvas.height / 2 + m * (canvasLeft - canvas.width / 2);
-                        }
-                    }
-                    
-                    ctx.save();
-                    ctx.fillStyle = ship.color;
-                    ctx.shadowColor = ship.color;
-                    ctx.shadowBlur = 15;
-                    ctx.beginPath();
-                    ctx.arc(indicatorX, indicatorY, 5, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.restore();
-                }
-            }
-
             function draw() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -760,221 +521,17 @@
                 ctx.fill();
                 ctx.shadowBlur = 0;
 
-                drawShip(player1Ship);
-                drawShip(player2Ship);
-                
-                drawOffscreenIndicator(player1Ship);
-                drawOffscreenIndicator(player2Ship);
+                player1Ship.drawShip();
+                player2Ship.drawShip();
 
-                missiles.forEach(drawMissile);
+                scoreP1.textContent = player1Ship.score;
+                scoreP2.textContent = player2Ship.score;
+                player1Ship.updateFuelDisplay(fuelDisplayP1);
+                player2Ship.updateFuelDisplay(fuelDisplayP2);
+                player1Ship.updateAmmoContainer('missile-icons-p1');
+                player2Ship.updateAmmoContainer('missile-icons-p2');
+
                 explosions.forEach(drawExplosion);
-            }
-
-            function updateShip(ship) {
-                if (ship.destroyed) return;
-                
-                let dx = planet.x - ship.x;
-                let dy = planet.y - ship.y;
-                let distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (distance > 1) {
-                    const gravityConstant = 50; 
-                    let gravityForce = gravityConstant / (distance * distance);
-                    ship.velocityX += gravityForce * dx / distance;
-                    ship.velocityY += gravityForce * dy / distance;
-                }
-                
-                if (ship.thrust > 0) {
-                    const thrustMagnitude = 0.002;
-                    ship.velocityX += thrustMagnitude * Math.cos(ship.angle);
-                    ship.velocityY += thrustMagnitude * Math.sin(ship.angle);
-                }
-
-                ship.x += ship.velocityX;
-                ship.y += ship.velocityY;
-
-                if (distance < planet.radius + 10) {
-                    if (!ship.hasBeenPenalized) {
-                         if (ship === player1Ship) {
-                            player1Score = Math.max(0, player1Score - 1);
-                         } else {
-                            player2Score = Math.max(0, player2Score - 1);
-                         }
-                         ship.hasBeenPenalized = true;
-                         updateScoreDisplay();
-                    }
-                    
-                    ship.destroyed = true;
-                    createExplosion(ship.x, ship.y, ship.color);
-                    respawnShip(ship);
-                } else {
-                    ship.hasBeenPenalized = false;
-                }
-
-                const dragZoneWidth = 100;
-                const canvasCenterX = canvas.width / 2;
-                const canvasCenterY = canvas.height / 2;
-
-                const distToCenter = Math.sqrt(Math.pow(ship.x - canvasCenterX, 2) + Math.pow(ship.y - canvasCenterY, 2));
-                const canvasMaxDist = Math.sqrt(Math.pow(canvas.width / 2, 2) + Math.pow(canvas.height / 2, 2));
-
-                if (distToCenter > canvasMaxDist) {
-                    const dragStrength = (distToCenter - canvasMaxDist) / dragZoneWidth;
-                    const dragAngle = Math.atan2(canvasCenterY - ship.y, canvasCenterX - ship.x);
-                    
-                    ship.velocityX += dragStrength * Math.cos(dragAngle) * 0.2;
-                    ship.velocityY += dragStrength * Math.sin(dragAngle) * 0.2;
-                }
-            }
-            
-            function fireMissile(ship) {
-                if (ship.missiles > 0) {
-                    ship.missiles--;
-                    updateAmmoDisplay();
-                    
-                    const missileSpeed = 1;
-                    const missileX = ship.x + (ship.height / 2) * Math.cos(ship.angle);
-                    const missileY = ship.y + (ship.height / 2) * Math.sin(ship.angle);
-
-                    missiles.push({
-                        x: missileX,
-                        y: missileY,
-                        velocityX: ship.velocityX + missileSpeed * Math.cos(ship.angle),
-                        velocityY: ship.velocityY + missileSpeed * Math.sin(ship.angle),
-                        color: ship.color,
-                        destroyed: false,
-                        parent: ship,
-                        timestamp: Date.now()
-                    });
-                }
-            }
-
-            function updateMissiles() {
-                missiles.forEach(missile => {
-                    if (missile.destroyed) return;
-                    
-                    let dx = planet.x - missile.x;
-                    let dy = planet.y - missile.y;
-                    let distance = Math.sqrt(dx * dx + dy * dy);
-
-                    if (Date.now() - missile.timestamp > MISSILE_LIFETIME) {
-                        missile.destroyed = true;
-                        createExplosion(missile.x, missile.y, missile.color);
-                        missile.parent.missiles++;
-                        updateAmmoDisplay();
-                        return;
-                    }
-
-                    if (distance > 1) {
-                        const gravityConstant = 200; 
-                        let gravityForce = gravityConstant / (distance * distance);
-                        missile.velocityX += gravityForce * dx / distance;
-                        missile.velocityY += gravityForce * dy / distance;
-                    }
-                    
-                    missile.x += missile.velocityX;
-                    missile.y += missile.velocityY;
-
-                    if (distance < planet.radius + 5) {
-                        missile.destroyed = true;
-                        missile.parent.missiles++;
-                        updateAmmoDisplay();
-                    }
-
-                    const canvasMaxDist = Math.sqrt(Math.pow(canvas.width / 2, 2) + Math.pow(canvas.height / 2, 2));
-                    const distToCenter = Math.sqrt(Math.pow(missile.x - canvas.width/2, 2) + Math.pow(missile.y - canvas.height/2, 2));
-                    if (distToCenter > canvasMaxDist + 50) {
-                         missile.destroyed = true;
-                         missile.parent.missiles++;
-                         updateAmmoDisplay();
-                    }
-
-                    const otherShip = missile.parent === player1Ship ? player2Ship : player1Ship;
-                    if (!otherShip.destroyed && !otherShip.invulnerable) {
-                        const shipDistance = Math.sqrt(Math.pow(missile.x - otherShip.x, 2) + Math.pow(missile.y - otherShip.y, 2));
-                        if (shipDistance < otherShip.width) {
-                            otherShip.destroyed = true;
-                            missile.destroyed = true;
-                            createExplosion(otherShip.x, otherShip.y, otherShip.color);
-                            missile.parent.missiles++;
-                            updateAmmoDisplay();
-                            if (missile.parent === player1Ship) {
-                                player1Score++;
-                            } else {
-                                player2Score++;
-                            }
-                            respawnShip(otherShip);
-                            updateScoreDisplay();
-                            checkWinCondition();
-                        }
-                    }
-
-                    missiles.forEach(otherMissile => {
-                        if (missile !== otherMissile && !missile.destroyed && !otherMissile.destroyed) {
-                            const isSamePlayer = missile.parent === otherMissile.parent;
-                            const isPastGracePeriod = Date.now() - missile.timestamp > MISSILE_COLLISION_GRACE_PERIOD;
-                            
-                            if (!isSamePlayer || isPastGracePeriod) {
-                                const missileDistance = Math.sqrt(Math.pow(missile.x - otherMissile.x, 2) + Math.pow(missile.y - otherMissile.y, 2));
-                                if (missileDistance < 8) {
-                                    missile.destroyed = true;
-                                    otherMissile.destroyed = true;
-                                    createExplosion(missile.x, missile.y, missile.color);
-                                    missile.parent.missiles++;
-                                    otherMissile.parent.missiles++;
-                                    updateAmmoDisplay();
-                                }
-                            }
-                        }
-                    });
-                });
-                
-                missiles = missiles.filter(m => !m.destroyed);
-            }
-
-            function aiLogic(bot, target) {
-                if (!isGameRunning || bot.destroyed) return;
-                
-                const dx = target.x - bot.x;
-                const dy = target.y - bot.y;
-                let angleToTarget = Math.atan2(dy, dx);
-                
-                // Add a small random offset to break the mirroring
-                const randomness = (Math.random() - 0.5) * 0.5; // Random value between -0.25 and 0.25
-                angleToTarget += randomness;
-
-                let angleDiff = angleToTarget - bot.angle;
-                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-
-                if (Math.abs(angleDiff) > 0.05) {
-                    if (angleDiff > 0) {
-                        bot.angle += bot.rotationSpeed;
-                    } else {
-                        bot.angle -= bot.rotationSpeed;
-                    }
-                }
-
-                const preferredDistance = 150;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (distance > preferredDistance && bot.fuel > 0) {
-                    bot.thrust = 0.002;
-                    bot.fuel -= FUEL_PER_FRAME;
-                } else if (distance < preferredDistance && bot.fuel > 0) {
-                     bot.thrust = -0.002;
-                     bot.fuel -= FUEL_PER_FRAME;
-                } else {
-                    bot.thrust = 0;
-                }
-
-                const angleTolerance = 0.1;
-                const firingDistance = 180;
-                const firingChance = 0.05; // 5% chance to fire each frame
-                
-                if (bot.missiles > 0 && Math.abs(angleDiff) < angleTolerance && distance < firingDistance && Math.random() < firingChance) {
-                    fireMissile(bot);
-                }
             }
 
             function gameLoop() {
@@ -988,101 +545,42 @@
                         player2Ship.destroyed = true;
                         createExplosion(player1Ship.x, player1Ship.y, player1Ship.color);
                         createExplosion(player2Ship.x, player2Ship.y, player2Ship.color);
-                        respawnShip(player1Ship);
-                        respawnShip(player2Ship);
+                        player1Ship.resetInitialPosition();
+                        player2Ship.resetInitialPosition();
                         noFuelTimer = null;
                     }
                 } else {
                     noFuelTimer = null;
                 }
 
+                const unset = [];
                 // Player 1 Logic
                 if (!isPlayer1Bot) {
-                    if (keys['w']) {
-                        if (player1Ship.fuel > 0) {
-                            player1Ship.thrust = 0.002;
-                            player1Ship.fuel -= FUEL_PER_FRAME;
-                        } else {
-                            player1Ship.thrust = 0;
-                        }
-                    } else {
-                        player1Ship.thrust = 0;
-                    }
-                    if (keys['a']) player1Ship.angle -= player1Ship.rotationSpeed;
-                    if (keys['d']) player1Ship.angle += player1Ship.rotationSpeed;
-                    if (keys['s']) {
-                        fireMissile(player1Ship);
-                        keys['s'] = false;
-                    }
+                    unset.push(...player1Input.update(keys));
                 } else {
-                    aiLogic(player1Ship, player2Ship);
+                    basicBot(player1Ship, player2Ship);
                 }
 
                 // Player 2 Logic
                 if (!isPlayer2Bot) {
-                    if (keys['arrowup']) {
-                        if (player2Ship.fuel > 0) {
-                            player2Ship.thrust = 0.002;
-                            player2Ship.fuel -= FUEL_PER_FRAME;
-                        } else {
-                            player2Ship.thrust = 0;
-                        }
-                    } else {
-                        player2Ship.thrust = 0;
-                    }
-                    if (keys['arrowleft']) player2Ship.angle -= player2Ship.rotationSpeed;
-                    if (keys['arrowright']) player2Ship.angle += player2Ship.rotationSpeed;
-                    if (keys['arrowdown']) {
-                        fireMissile(player2Ship);
-                        keys['arrowdown'] = false;
-                    }
+                    unset.push(...player2Input.update(keys));
                 } else {
-                    aiLogic(player2Ship, player1Ship);
+                    basicBot(player2Ship, player1Ship);
                 }
                 
                 if (keys['y']) {
                     pauseGame();
-                    keys['y'] = false;
+                    unset.push('y');
                 }
+                
+                unset.forEach((item) => keys[item] = false);
 
-                updateShip(player1Ship);
-                updateShip(player2Ship);
+                player1Ship.updateShip(planet, createExplosion, player2Ship);
+                player2Ship.updateShip(planet, createExplosion, player1Ship);
+                player1Ship.isCollidingShip(player2Ship, createExplosion);
+                checkWinCondition();
 
-                if (!player1Ship.destroyed && !player2Ship.destroyed) {
-                    let shipDistance = Math.sqrt(Math.pow(player1Ship.x - player2Ship.x, 2) + Math.pow(player1Ship.y - player2Ship.y, 2));
-                    let collisionDistance = player1Ship.width + player2Ship.width;
-
-                    if (shipDistance < collisionDistance) {
-                        const player1Velocity = Math.sqrt(Math.pow(player1Ship.velocityX, 2) + Math.pow(player1Ship.velocityY, 2));
-                        const player2Velocity = Math.sqrt(Math.pow(player2Ship.velocityX, 2) + Math.pow(player2Ship.velocityY, 2));
-
-                        if (player1Velocity > player2Velocity) {
-                            player2Ship.destroyed = true;
-                            player1Score++;
-                            createExplosion(player2Ship.x, player2Ship.y, player2Ship.color);
-                            respawnShip(player2Ship);
-                        } else if (player2Velocity > player1Velocity) {
-                            player1Ship.destroyed = true;
-                            player2Score++;
-                            createExplosion(player1Ship.x, player1Ship.y, player1Ship.color);
-                            respawnShip(player1Ship);
-                        } else {
-                            player1Ship.destroyed = true;
-                            player2Ship.destroyed = true;
-                            createExplosion(player1Ship.x, player1Ship.y, player1Ship.color);
-                            createExplosion(player2Ship.x, player2Ship.y, player2Ship.color);
-                            respawnShip(player1Ship);
-                            respawnShip(player2Ship);
-                        }
-                        updateScoreDisplay();
-                        checkWinCondition();
-                    }
-                }
-
-                updateMissiles();
                 updateExplosions();
-                updateFuelDisplay(player1Ship, fuelDisplayP1);
-                updateFuelDisplay(player2Ship, fuelDisplayP2);
                 draw();
                 animationFrameId = requestAnimationFrame(gameLoop);
             }
