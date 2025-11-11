@@ -301,6 +301,7 @@
         import { Ship } from './ship.js';
         import { Missile } from './missile.js';
         import { basicBot } from './ai.js';
+        import { UserInput } from './input.js';
 
         document.addEventListener('DOMContentLoaded', () => {
             const canvas = document.getElementById('gameCanvas');
@@ -344,7 +345,9 @@
             };
 
             const player1Ship = Ship(canvas, ctx, document, true);
+            const player1Input = UserInput(player1Ship, 'w', 'a', 'd', 's');
             const player2Ship = Ship(canvas, ctx, document, false);
+            const player2Input = UserInput(player2Ship, 'arrowup', 'arrowleft', 'arrowright', 'arrowdown');
 
             let missiles = [];
             let explosions = [];
@@ -550,36 +553,27 @@
                     noFuelTimer = null;
                 }
 
+                const unset = [];
                 // Player 1 Logic
                 if (!isPlayer1Bot) {
-                    if (keys['w']) player1Ship.engageThrust();
-                    if (keys['a']) player1Ship.rotateLeft();
-                    if (keys['d']) player1Ship.rotateRight();
-                    if (keys['s']) {
-                        player1Ship.fire();
-                        keys['s'] = false;
-                    }
+                    unset.push(...player1Input.update(keys));
                 } else {
                     basicBot(player1Ship, player2Ship);
                 }
 
                 // Player 2 Logic
                 if (!isPlayer2Bot) {
-                    if (keys['arrowup']) player2Ship.engageThrust();
-                    if (keys['arrowleft']) player2Ship.rotateLeft();
-                    if (keys['arrowright']) player2Ship.rotateRight();
-                    if (keys['arrowdown']) {
-                        player2Ship.fire();
-                        keys['arrowdown'] = false;
-                    }
+                    unset.push(...player2Input.update(keys));
                 } else {
                     basicBot(player2Ship, player1Ship);
                 }
                 
                 if (keys['y']) {
                     pauseGame();
-                    keys['y'] = false;
+                    unset.push('y');
                 }
+                
+                unset.forEach((item) => keys[item] = false);
 
                 player1Ship.updateShip(planet, createExplosion, player2Ship);
                 player2Ship.updateShip(planet, createExplosion, player1Ship);
