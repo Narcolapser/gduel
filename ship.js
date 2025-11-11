@@ -248,6 +248,37 @@ export function Ship(canvas, ctx, document, isPlayer1) {
         }
     }
 
+    function isCollidingShip(other, createExplosion, respawnShip) {
+        if (!ship.destroyed && !other.destroyed) {
+            let shipDistance = Math.sqrt(Math.pow(ship.x - other.x, 2) + Math.pow(ship.y - other.y, 2));
+            let collisionDistance = ship.width + other.width;
+
+            if (shipDistance < collisionDistance) {
+                const player1Velocity = Math.sqrt(Math.pow(ship.velocityX, 2) + Math.pow(ship.velocityY, 2));
+                const player2Velocity = Math.sqrt(Math.pow(other.velocityX, 2) + Math.pow(other.velocityY, 2));
+
+                if (player1Velocity > player2Velocity) {
+                    other.destroyed = true;
+                    ship.score++;
+                    createExplosion(other.x, other.y, other.color);
+                    respawnShip(other);
+                } else if (player2Velocity > player1Velocity) {
+                    ship.destroyed = true;
+                    other.score++;
+                    createExplosion(ship.x, ship.y, ship.color);
+                    respawnShip(ship);
+                } else {
+                    ship.destroyed = true;
+                    other.destroyed = true;
+                    createExplosion(ship.x, ship.y, ship.color);
+                    createExplosion(other.x, other.y, other.color);
+                    respawnShip(ship);
+                    respawnShip(other);
+                }        
+            }
+        }
+    }
+
     ship.drawShip = drawShip;
     ship.updateAmmoContainer = updateAmmoContainer;
     ship.updateFuelDisplay = updateFuelDisplay;
@@ -257,5 +288,6 @@ export function Ship(canvas, ctx, document, isPlayer1) {
     ship.rotateLeft = rotateLeft;
     ship.rotateRight = rotateRight;
     ship.fire = fire;
+    ship.isCollidingShip = isCollidingShip;
     return ship;
 };

@@ -596,37 +596,8 @@
 
                 player1Ship.updateShip(planet, createExplosion, respawnShip, player2Ship);
                 player2Ship.updateShip(planet, createExplosion, respawnShip, player1Ship);
-
-                if (!player1Ship.destroyed && !player2Ship.destroyed) {
-                    let shipDistance = Math.sqrt(Math.pow(player1Ship.x - player2Ship.x, 2) + Math.pow(player1Ship.y - player2Ship.y, 2));
-                    let collisionDistance = player1Ship.width + player2Ship.width;
-
-                    if (shipDistance < collisionDistance) {
-                        const player1Velocity = Math.sqrt(Math.pow(player1Ship.velocityX, 2) + Math.pow(player1Ship.velocityY, 2));
-                        const player2Velocity = Math.sqrt(Math.pow(player2Ship.velocityX, 2) + Math.pow(player2Ship.velocityY, 2));
-
-                        if (player1Velocity > player2Velocity) {
-                            player2Ship.destroyed = true;
-                            player1Ship.score++;
-                            createExplosion(player2Ship.x, player2Ship.y, player2Ship.color);
-                            respawnShip(player2Ship);
-                        } else if (player2Velocity > player1Velocity) {
-                            player1Ship.destroyed = true;
-                            player2Ship.score++;
-                            createExplosion(player1Ship.x, player1Ship.y, player1Ship.color);
-                            respawnShip(player1Ship);
-                        } else {
-                            player1Ship.destroyed = true;
-                            player2Ship.destroyed = true;
-                            createExplosion(player1Ship.x, player1Ship.y, player1Ship.color);
-                            createExplosion(player2Ship.x, player2Ship.y, player2Ship.color);
-                            respawnShip(player1Ship);
-                            respawnShip(player2Ship);
-                        }        
-
-                        checkWinCondition();
-                    }
-                }
+                player1Ship.isCollidingShip(player2Ship, createExplosion, respawnShip);
+                checkWinCondition();
 
                 updateExplosions();
                 draw();
