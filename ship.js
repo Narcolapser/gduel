@@ -167,9 +167,17 @@ export function Ship(canvas, ctx, document, isPlayer1) {
         ship.invulnerable = true;
         ship.hasBeenPenalized = false;
         setTimeout(() => ship.invulnerable = false, invulnerabilitySeconds ?? 0);
+        setTimeout(() => {
+            ship.missiles.forEach(missile => {
+                if (missile.parent === ship) {
+                    createExplosion(missile.x, missile.y, missile.color);
+                    missile.destroyed = true;
+                }
+            });
+        }, 1500);
     }
 
-    function updateShip(planet, createExplosion, respawnShip, opponent) {
+    function updateShip(planet, createExplosion, opponent) {
         if (ship.destroyed) return;
         
         let dx = planet.x - ship.x;
@@ -203,7 +211,7 @@ export function Ship(canvas, ctx, document, isPlayer1) {
             
             ship.destroyed = true;
             createExplosion(ship.x, ship.y, ship.color);
-            respawnShip(ship);
+            setTimeout(() => { ship.resetInitialPosition(3000) }, 3000);
         } else {
             ship.hasBeenPenalized = false;
         }
@@ -223,6 +231,7 @@ export function Ship(canvas, ctx, document, isPlayer1) {
             ship.velocityY += dragStrength * Math.sin(dragAngle) * 0.2;
         }
 
+        const respawnShip = (target) => setTimeout(() => { target.resetInitialPosition(3000) }, 3000);
         ship.missiles.forEach(m => m.updateMissle(planet, ship.missiles, [ship, opponent], createExplosion, respawnShip));
         ship.missiles = ship.missiles.filter(m => !m.destroyed);
     }
@@ -248,7 +257,7 @@ export function Ship(canvas, ctx, document, isPlayer1) {
         }
     }
 
-    function isCollidingShip(other, createExplosion, respawnShip) {
+    function isCollidingShip(other, createExplosion) {
         if (!ship.destroyed && !other.destroyed) {
             let shipDistance = Math.sqrt(Math.pow(ship.x - other.x, 2) + Math.pow(ship.y - other.y, 2));
             let collisionDistance = ship.width + other.width;
@@ -261,19 +270,19 @@ export function Ship(canvas, ctx, document, isPlayer1) {
                     other.destroyed = true;
                     ship.score++;
                     createExplosion(other.x, other.y, other.color);
-                    respawnShip(other);
+                    setTimeout(() => { other.resetInitialPosition(3000) }, 3000);
                 } else if (player2Velocity > player1Velocity) {
                     ship.destroyed = true;
                     other.score++;
                     createExplosion(ship.x, ship.y, ship.color);
-                    respawnShip(ship);
+                    setTimeout(() => { ship.resetInitialPosition(3000) }, 3000);
                 } else {
                     ship.destroyed = true;
                     other.destroyed = true;
                     createExplosion(ship.x, ship.y, ship.color);
                     createExplosion(other.x, other.y, other.color);
-                    respawnShip(ship);
-                    respawnShip(other);
+                    setTimeout(() => { ship.resetInitialPosition(3000) }, 3000);
+                    setTimeout(() => { other.resetInitialPosition(3000) }, 3000);
                 }        
             }
         }

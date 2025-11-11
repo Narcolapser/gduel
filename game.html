@@ -410,19 +410,6 @@
                 });
                 explosions = explosions.filter(e => e.particles.length > 0);
             }
-            
-            function respawnShip(ship) {
-                setTimeout(() => {
-                    missiles.forEach(missile => {
-                        if (missile.parent === ship) {
-                            createExplosion(missile.x, missile.y, missile.color);
-                            missile.destroyed = true;
-                        }
-                    });
-                }, 1500);
-                
-                setTimeout(() => { ship.resetInitialPosition(3000) }, 3000);
-            }
 
             function resetGame() {
                 player1Ship.score = 0;
@@ -555,8 +542,8 @@
                         player2Ship.destroyed = true;
                         createExplosion(player1Ship.x, player1Ship.y, player1Ship.color);
                         createExplosion(player2Ship.x, player2Ship.y, player2Ship.color);
-                        respawnShip(player1Ship);
-                        respawnShip(player2Ship);
+                        player1Ship.resetInitialPosition();
+                        player2Ship.resetInitialPosition();
                         noFuelTimer = null;
                     }
                 } else {
@@ -594,9 +581,9 @@
                     keys['y'] = false;
                 }
 
-                player1Ship.updateShip(planet, createExplosion, respawnShip, player2Ship);
-                player2Ship.updateShip(planet, createExplosion, respawnShip, player1Ship);
-                player1Ship.isCollidingShip(player2Ship, createExplosion, respawnShip);
+                player1Ship.updateShip(planet, createExplosion, player2Ship);
+                player2Ship.updateShip(planet, createExplosion, player1Ship);
+                player1Ship.isCollidingShip(player2Ship, createExplosion);
                 checkWinCondition();
 
                 updateExplosions();
