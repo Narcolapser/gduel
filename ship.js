@@ -58,7 +58,52 @@ export function Ship(canvas, ctx, document, isPlayer1) {
         ctx.restore();
         ctx.globalAlpha = 1.0;
         ctx.shadowBlur = 0;
+        drawOffscreenIndicator()
     };
+
+    function drawOffscreenIndicator() {
+        const buffer = 10;
+        const canvasLeft = buffer;
+        const canvasRight = canvas.width - buffer;
+        const canvasTop = buffer;
+        const canvasBottom = canvas.height - buffer;
+
+        if (ship.x > canvas.width || ship.x < 0 || ship.y > canvas.height || ship.y < 0) {
+            const dx = ship.x - canvas.width / 2;
+            const dy = ship.y - canvas.height / 2;
+            const angle = Math.atan2(dy, dx);
+
+            let indicatorX, indicatorY;
+            let m = dy / dx;
+
+            if (Math.abs(dy) > Math.abs(dx)) {
+                if (dy > 0) {
+                    indicatorY = canvasBottom;
+                    indicatorX = canvas.width / 2 + (canvasBottom - canvas.height / 2) / m;
+                } else {
+                    indicatorY = canvasTop;
+                    indicatorX = canvas.width / 2 + (canvasTop - canvas.height / 2) / m;
+                }
+            } else {
+                if (dx > 0) {
+                    indicatorX = canvasRight;
+                    indicatorY = canvas.height / 2 + m * (canvasRight - canvas.width / 2);
+                } else {
+                    indicatorX = canvasLeft;
+                    indicatorY = canvas.height / 2 + m * (canvasLeft - canvas.width / 2);
+                }
+            }
+            
+            ctx.save();
+            ctx.fillStyle = ship.color;
+            ctx.shadowColor = ship.color;
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(indicatorX, indicatorY, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
 
     function updateAmmoContainer(containerId) {
         const container = document.getElementById(containerId);
