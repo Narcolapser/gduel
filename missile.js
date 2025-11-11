@@ -18,7 +18,6 @@ export function Missile(ctx, canvas, ship) {
     };
 
     function drawMissile() {
-        console.log('drawing missile');
         if (missile.destroyed) return;
         ctx.save();
         ctx.translate(missile.x, missile.y);
@@ -40,7 +39,6 @@ export function Missile(ctx, canvas, ship) {
         if (Date.now() - missile.timestamp > MISSILE_LIFETIME) {
             missile.destroyed = true;
             createExplosion(missile.x, missile.y, missile.color);
-            missile.parent.missiles++;
             return;
         }
 
@@ -56,14 +54,12 @@ export function Missile(ctx, canvas, ship) {
 
         if (distance < planet.radius + 5) {
             missile.destroyed = true;
-            missile.parent.missiles++;
         }
 
         const canvasMaxDist = Math.sqrt(Math.pow(canvas.width / 2, 2) + Math.pow(canvas.height / 2, 2));
         const distToCenter = Math.sqrt(Math.pow(missile.x - canvas.width/2, 2) + Math.pow(missile.y - canvas.height/2, 2));
         if (distToCenter > canvasMaxDist + 50) {
                 missile.destroyed = true;
-                missile.parent.missiles++;
         }
 
         const otherShip = ships.filter(s => s !== missile.parent)[0];
@@ -73,7 +69,6 @@ export function Missile(ctx, canvas, ship) {
                 otherShip.destroyed = true;
                 missile.destroyed = true;
                 createExplosion(otherShip.x, otherShip.y, otherShip.color);
-                missile.parent.missiles++;
                 missile.parent.score ++;
                 respawnShip(otherShip);
             }
@@ -90,8 +85,6 @@ export function Missile(ctx, canvas, ship) {
                         missile.destroyed = true;
                         otherMissile.destroyed = true;
                         createExplosion(missile.x, missile.y, missile.color);
-                        missile.parent.missiles++;
-                        otherMissile.parent.missiles++;
                     }
                 }
             }

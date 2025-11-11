@@ -1,3 +1,5 @@
+import { Missile } from './missile.js';
+
 export function Ship(canvas, ctx, document, isPlayer1) {
     const MAX_FUEL_SECONDS = 10;
     const TOTAL_FUEL_LINES = 57;
@@ -16,13 +18,33 @@ export function Ship(canvas, ctx, document, isPlayer1) {
         velocityY: 0,
         color: isPlayer1 ? '#00ff00' :'#ff0000',
         destroyed: false,
-        missiles: 3,
+        maxMissiles: 3,
         invulnerable: false,
         hasBeenPenalized: false,
         fuel: MAX_FUEL_SECONDS,
         isPlayer1,
         score: 0,
     };
+
+    let _missiles = [];
+    Object.defineProperty(ship, 'missiles', {
+        get() {
+            return _missiles;
+        },
+        set(value) {
+            if (Number.isNaN(value)) {
+                // Throwing here gives you a stack trace for the bad assignment
+                throw new Error('ship.missiles was set to NaN');
+            }
+            if (!Array.isArray(value)) {
+                console.warn('ship.missiles was set to a non-array value:', value);
+            }
+            _missiles = value;
+        },
+        enumerable: true,
+        configurable: true
+    });
+
 
     function drawShip() {
         if (ship.destroyed) return;
@@ -58,7 +80,8 @@ export function Ship(canvas, ctx, document, isPlayer1) {
         ctx.restore();
         ctx.globalAlpha = 1.0;
         ctx.shadowBlur = 0;
-        drawOffscreenIndicator()
+        drawOffscreenIndicator();
+        ship.missiles.forEach((m) => m.drawMissile());
     };
 
     function drawOffscreenIndicator() {
@@ -108,7 +131,7 @@ export function Ship(canvas, ctx, document, isPlayer1) {
     function updateAmmoContainer(containerId) {
         const container = document.getElementById(containerId);
         container.innerHTML = '';
-        for (let i = 0; i < ship.missiles; i++) {
+        for (let i = ship.missiles.length; i < ship.maxMissiles; i++) {
             const missileDiv = document.createElement('div');
             missileDiv.className = 'missile-icon';
             container.appendChild(missileDiv)
@@ -128,7 +151,6 @@ export function Ship(canvas, ctx, document, isPlayer1) {
 
     function resetInitialPosition(invulnerabilitySeconds) {
         ship.destroyed = false;
-        ship.missiles = 3;
         ship.fuel = MAX_FUEL_SECONDS;
 
         const gravityConstant = 50; 
@@ -140,14 +162,14 @@ export function Ship(canvas, ctx, document, isPlayer1) {
         ship.velocityY = ship.isPlayer1 ? circularVelocity : -circularVelocity;
         ship.angle = Math.PI * ship.isPlayer1 ? 1.5 : 4.75;
         ship.destroyed = false;
-        ship.missiles = 3;
+        ship.missiles = [];
         ship.fuel = MAX_FUEL_SECONDS;
         ship.invulnerable = true;
         ship.hasBeenPenalized = false;
         setTimeout(() => ship.invulnerable = false, invulnerabilitySeconds ?? 0);
     }
 
-    function updateShip(planet, createExplosion, respawnShip) {
+    function updateShip(planet, createExplosion, respawnShip, opponent) {
         if (ship.destroyed) return;
         
         let dx = planet.x - ship.x;
@@ -200,6 +222,9 @@ export function Ship(canvas, ctx, document, isPlayer1) {
             ship.velocityX += dragStrength * Math.cos(dragAngle) * 0.2;
             ship.velocityY += dragStrength * Math.sin(dragAngle) * 0.2;
         }
+
+        ship.missiles.forEach(m => m.updateMissle(planet, ship.missiles, [ship, opponent], createExplosion, respawnShip));
+        ship.missiles = ship.missiles.filter(m => !m.destroyed);
     }
 
     function engageThrust() {
@@ -217,6 +242,12 @@ export function Ship(canvas, ctx, document, isPlayer1) {
         ship.angle += ship.rotationSpeed;
     }
 
+    function fire() {
+        if (ship.missiles.length < ship.maxMissiles) {
+            ship.missiles.push(Missile(ctx, canvas, ship));
+        }
+    }
+
     ship.drawShip = drawShip;
     ship.updateAmmoContainer = updateAmmoContainer;
     ship.updateFuelDisplay = updateFuelDisplay;
@@ -225,5 +256,6 @@ export function Ship(canvas, ctx, document, isPlayer1) {
     ship.engageThrust = engageThrust;
     ship.rotateLeft = rotateLeft;
     ship.rotateRight = rotateRight;
+    ship.fire = fire;
     return ship;
 };

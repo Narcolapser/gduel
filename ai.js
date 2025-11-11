@@ -1,4 +1,4 @@
-export function basicBot(bot, target, FUEL_PER_FRAME, fireMissile) {
+export function basicBot(bot, target) {
     if (bot.destroyed) return;
     
     const dx = target.x - bot.x;
@@ -32,7 +32,7 @@ export function basicBot(bot, target, FUEL_PER_FRAME, fireMissile) {
     const firingDistance = 180;
     const firingChance = 0.05; // 5% chance to fire each frame
     
-    if (bot.missiles > 0 && Math.abs(angleDiff) < angleTolerance && distance < firingDistance && Math.random() < firingChance) {
-        fireMissile(bot);
+    if (bot.missiles.length < bot.maxMissiles && Math.abs(angleDiff) < angleTolerance && distance < firingDistance && Math.random() < firingChance) {
+        bot.fire();
     }
 }

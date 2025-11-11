@@ -541,15 +541,7 @@
                 player1Ship.updateAmmoContainer('missile-icons-p1');
                 player2Ship.updateAmmoContainer('missile-icons-p2');
 
-                missiles.forEach((m) => m.drawMissile());
                 explosions.forEach(drawExplosion);
-            }
-            
-            function fireMissile(ship) {
-                if (ship.missiles > 0) {
-                    ship.missiles--;
-                    missiles.push(Missile(ctx, canvas, ship));
-                }
             }
 
             function gameLoop() {
@@ -577,11 +569,11 @@
                     if (keys['a']) player1Ship.rotateLeft();
                     if (keys['d']) player1Ship.rotateRight();
                     if (keys['s']) {
-                        fireMissile(player1Ship);
+                        player1Ship.fire();
                         keys['s'] = false;
                     }
                 } else {
-                    basicBot(player1Ship, player2Ship, FUEL_PER_FRAME, fireMissile);
+                    basicBot(player1Ship, player2Ship);
                 }
 
                 // Player 2 Logic
@@ -590,11 +582,11 @@
                     if (keys['arrowleft']) player2Ship.rotateLeft();
                     if (keys['arrowright']) player2Ship.rotateRight();
                     if (keys['arrowdown']) {
-                        fireMissile(player2Ship);
+                        player2Ship.fire();
                         keys['arrowdown'] = false;
                     }
                 } else {
-                    basicBot(player2Ship, player1Ship, FUEL_PER_FRAME, fireMissile);
+                    basicBot(player2Ship, player1Ship);
                 }
                 
                 if (keys['y']) {
@@ -602,8 +594,8 @@
                     keys['y'] = false;
                 }
 
-                player1Ship.updateShip(planet, createExplosion, respawnShip);
-                player2Ship.updateShip(planet, createExplosion, respawnShip);
+                player1Ship.updateShip(planet, createExplosion, respawnShip, player2Ship);
+                player2Ship.updateShip(planet, createExplosion, respawnShip, player1Ship);
 
                 if (!player1Ship.destroyed && !player2Ship.destroyed) {
                     let shipDistance = Math.sqrt(Math.pow(player1Ship.x - player2Ship.x, 2) + Math.pow(player1Ship.y - player2Ship.y, 2));
@@ -635,9 +627,6 @@
                         checkWinCondition();
                     }
                 }
-
-                missiles.forEach(m => m.updateMissle(planet, missiles, [player1Ship, player2Ship], createExplosion, respawnShip));
-                missiles = missiles.filter(m => !m.destroyed);
 
                 updateExplosions();
                 draw();
