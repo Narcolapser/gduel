@@ -353,7 +353,8 @@
             let explosions = [];
 
             let keys = {};
-            
+            let last_frame=0;
+			
             document.addEventListener('keydown', (e) => {
                 if (isGameRunning && !isGamePaused) {
                     if (e.key.toLowerCase() === 'y') {
@@ -535,6 +536,12 @@
             }
 
             function gameLoop() {
+				const time_since_last_frame=Date.now()-last_frame;
+				if (time_since_last_frame<1000/180) //FPS adjustment variable
+				{
+				animationFrameId = requestAnimationFrame(gameLoop);
+				return;				
+				}
                 if (!isGameRunning || isGamePaused) return;
 
                 if (player1Ship.fuel <= 0 && player2Ship.fuel <= 0) {
@@ -582,6 +589,7 @@
 
                 updateExplosions();
                 draw();
+				last_frame=Date.now();
                 animationFrameId = requestAnimationFrame(gameLoop);
             }
 
