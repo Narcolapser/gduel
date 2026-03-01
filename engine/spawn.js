@@ -73,11 +73,11 @@ export function respawnShip(world, shipId, planetId, invulnerableMs = SHIP.invul
   const circularVelocity = 0.9 * Math.sqrt((well?.mu ?? PLANET.mu) / distance);
 
   const isP1 = ship.playerIndex === 1;
-  const x = planetT.x + (isP1 ? distance : -distance);
+  const x = planetT.x + (isP1 ? -distance : distance);
   const y = planetT.y;
 
   const vx = 0;
-  const vy = isP1 ? circularVelocity : -circularVelocity;
+  const vy = isP1 ? -circularVelocity : circularVelocity;
 
   const angle = isP1 ? 1.5 : 4.75;
 

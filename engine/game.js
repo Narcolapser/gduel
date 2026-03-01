@@ -13,10 +13,10 @@ export function createMatch({ canvas, ctx, document }) {
   const ship1Id = spawnShip(world, {
     playerIndex: 1,
     color: '#00ff00',
-    x: canvas.width / 2 + distance,
+    x: canvas.width / 2 - distance,
     y: canvas.height / 2,
     vx: 0,
-    vy: circularVelocity,
+    vy: -circularVelocity,
     angle: 1.5,
     inputKeys: { thrust: 'w', left: 'a', right: 'd', fire: 's' },
   });
@@ -24,10 +24,10 @@ export function createMatch({ canvas, ctx, document }) {
   const ship2Id = spawnShip(world, {
     playerIndex: 2,
     color: '#ff0000',
-    x: canvas.width / 2 - distance,
+    x: canvas.width / 2 + distance,
     y: canvas.height / 2,
     vx: 0,
-    vy: -circularVelocity,
+    vy: circularVelocity,
     angle: 4.75,
     inputKeys: { thrust: 'arrowup', left: 'arrowleft', right: 'arrowright', fire: 'arrowdown' },
   });
