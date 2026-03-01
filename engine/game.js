@@ -30,7 +30,7 @@ export function createMatch({ canvas, ctx, document, maxMissiles = SHIP.maxMissi
     y: cy,
     vx: 0,
     vy: -circularVelocity,
-    angle: 1.5,
+    angle: (Math.atan2(-circularVelocity, 0) + Math.PI * 2) % (Math.PI * 2),
     inputKeys: { thrust: 'w', left: 'a', right: 'd', fire: 's' },
     maxMissiles,
   });
@@ -42,7 +42,7 @@ export function createMatch({ canvas, ctx, document, maxMissiles = SHIP.maxMissi
     y: cy,
     vx: 0,
     vy: circularVelocity,
-    angle: 4.75,
+    angle: (Math.atan2(circularVelocity, 0) + Math.PI * 2) % (Math.PI * 2),
     inputKeys: { thrust: 'arrowup', left: 'arrowleft', right: 'arrowright', fire: 'arrowdown' },
     maxMissiles,
   });

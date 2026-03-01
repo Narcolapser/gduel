@@ -80,7 +80,7 @@ export function respawnShip(world, shipId, planetId, invulnerableMs = SHIP.invul
   const vx = 0;
   const vy = isP1 ? -circularVelocity : circularVelocity;
 
-  const angle = isP1 ? 1.5 : 4.75;
+  const angle = (Math.atan2(vy, vx) + Math.PI * 2) % (Math.PI * 2);
 
   set(world.stores.transform, shipId, { x, y, angle });
   set(world.stores.velocity, shipId, { x: vx, y: vy });
