@@ -20,18 +20,64 @@
             font-family: 'Press Start 2P', cursive;
             text-align: center;
             overflow: hidden;
-            gap: 3rem;
+            gap: 0;
+        }
+
+        .game-frame {
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            border: 0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .cover {
+            position: relative;
+            width: min(90vw, 900px);
+            aspect-ratio: 16 / 9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            outline: none;
         }
 
         /* Styles for the Title Image */
         .title-image {
-            max-width: 90%;
-            height: auto;
-            /* Ensure the image scales gracefully on all screens */
-            width: clamp(250px, 80vw, 700px); 
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
             box-shadow: 0 0 10px rgba(171, 73, 227, 0.7), 0 0 30px rgba(171, 73, 227, 0.5);
             border-radius: 8px;
             animation: pulseGlow 3s ease-in-out infinite alternate;
+            background-color: rgba(0, 0, 0, 0.15);
+        }
+
+        .continue-text {
+            position: absolute;
+            bottom: 1.25rem;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.75rem 1rem;
+            border: 2px solid #fff;
+            border-radius: 6px;
+            background-color: rgba(0, 0, 0, 0.55);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            font-size: clamp(0.8rem, 2vw, 1.2rem);
+            letter-spacing: 0.02em;
+            text-transform: lowercase;
+            animation: continuePulse 1.2s ease-in-out infinite alternate;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        @keyframes continuePulse {
+            0% { opacity: 0.65; }
+            100% { opacity: 1; }
         }
 
         /* Pulsing glow animation for the image container */
@@ -44,49 +90,74 @@
             }
         }
 
-        .start-button {
-            background-color: transparent;
-            color: #fff;
-            /* Neon border effect */
-            border: 2px solid #fff;
-            padding: 1rem 2.5rem;
-            font-size: 1.5rem;
-            font-family: 'Press Start 2P', cursive;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 0 5px #fff;
-            border-radius: 4px;
-        }
-
-        .start-button:hover {
-            /* Increase glow and slight scale on hover */
-            box-shadow: 0 0 15px #fff, 0 0 30px #7904C2;
-            transform: scale(1.05);
-            background-color: rgba(255, 255, 255, 0.1);
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
     </style>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const startButton = document.getElementById('startButton');
+            const cover = document.getElementById('cover');
 
-            startButton.addEventListener('click', () => {
-                // Navigate to the game page
-                window.location.href = 'game.html';
+            const gameFrame = document.getElementById('gameFrame');
+
+            // Background music lives on the menu page so it can persist.
+            // Playback starts from the user's click (autoplay-safe) and loops.
+            const music = new Audio('./Galactic Standoff.mp3');
+            music.loop = true;
+            music.preload = 'auto';
+            music.volume = 0.6;
+
+            let hasStarted = false;
+
+            function startMusic() {
+                music.play().catch(() => {});
+            }
+
+            function continueToGame() {
+                if (hasStarted) return;
+                hasStarted = true;
+
+                startMusic();
+
+                cover.classList.add('hidden');
+                gameFrame.style.display = 'block';
+                gameFrame.src = 'game.html';
+            }
+
+            cover.addEventListener('click', continueToGame);
+            cover.addEventListener('keydown', (e) => {
+                const k = e.key.toLowerCase();
+                if (k === 'enter' || k === ' ') {
+                    e.preventDefault();
+                    continueToGame();
+                }
             });
-            
-            // Note: The original text animation logic has been removed as requested.
+
+            // Make it obvious it's interactive.
+            cover.focus();
         });
     </script>
 </head>
 <body>
-    <!-- The Title Image -->
-    <img 
-        src="/Gravity Duel Art v2.png" 
-        alt="Gravity Duel Game Title" 
-        class="title-image"
-        onerror="this.onerror=null; this.src='https://placehold.co/700x200/020826/EECFFF?text=Gravity+Duel+Title+Image'"
-    >
+    <div id="cover" class="cover" role="button" tabindex="0" aria-label="Click to continue to Gravity Duel">
+        <span class="sr-only">Click to continue</span>
+        <img 
+            src="/Gravity Duel Art v2.png" 
+            alt="Gravity Duel cover art" 
+            class="title-image"
+            onerror="this.onerror=null; this.src='https://placehold.co/900x506/020826/EECFFF?text=Gravity+Duel+Cover'"
+        >
+        <div class="continue-text">click to continue</div>
+    </div>
 
-    <button id="startButton" class="start-button">Start</button>
+    <iframe id="gameFrame" class="game-frame" title="Gravity Duel"></iframe>
 </body>
 </html>
