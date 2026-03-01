@@ -1,4 +1,4 @@
-import { PLANET, SHIP } from './constants.js';
+import { GRAVITY_MULTIPLIERS, PLANET, SHIP } from './constants.js';
 import { createWorld } from './world.js';
 import { createMap } from './maps.js';
 import { resetScores, respawnShip, spawnShip } from './spawn.js';
@@ -16,8 +16,13 @@ export function createMatch({ canvas, ctx, document, maxMissiles = SHIP.maxMissi
   // use the default PLANET tuning.
   const spawnMu = PLANET.mu;
 
+  const shipGravityMultRaw = Number(GRAVITY_MULTIPLIERS.ship ?? 1);
+  const shipGravityMult = Number.isFinite(shipGravityMultRaw) ? Math.max(0, shipGravityMultRaw) : 1;
+
   const distance = world.resources.spawnDistance;
-  const circularVelocity = 0.9 * Math.sqrt(spawnMu / distance);
+  // Gravity strength is scaled by the per-entity gravity multiplier, so the
+  // circular/orbital starting velocity should scale with sqrt(multiplier).
+  const circularVelocity = 0.9 * Math.sqrt((spawnMu * shipGravityMult) / distance);
 
   const anchorT = world.stores.transform.get(planetId);
   const cx = anchorT?.x ?? canvas.width / 2;

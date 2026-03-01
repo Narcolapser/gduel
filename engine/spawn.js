@@ -71,7 +71,12 @@ export function respawnShip(world, shipId, planetId, invulnerableMs = SHIP.invul
   const ship = world.stores.ship.get(shipId);
 
   const distance = world.resources.spawnDistance ?? SHIP.initialDistance;
-  const circularVelocity = 0.9 * Math.sqrt((well?.mu ?? PLANET.mu) / distance);
+  const multRaw = Number(world.stores.gravityMultiplier.get(shipId) ?? GRAVITY_MULTIPLIERS.ship ?? 1);
+  const mult = Number.isFinite(multRaw) ? Math.max(0, multRaw) : 1;
+
+  // Gravity strength is scaled by the per-entity gravity multiplier, so the
+  // circular/orbital starting velocity should scale with sqrt(multiplier).
+  const circularVelocity = 0.9 * Math.sqrt(((well?.mu ?? PLANET.mu) * mult) / distance);
 
   const isP1 = ship.playerIndex === 1;
   const x = planetT.x + (isP1 ? -distance : distance);

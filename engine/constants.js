@@ -36,8 +36,8 @@ export const PLANET = {
 };
 
 export const GRAVITY_MULTIPLIERS = {
-  ship: 1,
-  missile: 4, // Old missile gravity constant was 200 vs ship 50.
+  ship: 4,
+  missile: 4, 
 };
 
 export const BOUNDARY = {
