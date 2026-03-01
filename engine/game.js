@@ -2,7 +2,7 @@ import { PLANET, SHIP } from './constants.js';
 import { createWorld } from './world.js';
 import { resetScores, respawnShip, spawnPlanet, spawnShip } from './spawn.js';
 
-export function createMatch({ canvas, ctx, document }) {
+export function createMatch({ canvas, ctx, document, maxMissiles = SHIP.maxMissiles }) {
   const world = createWorld({ canvas, ctx, document });
 
   const planetId = spawnPlanet(world, { x: canvas.width / 2, y: canvas.height / 2 });
@@ -19,6 +19,7 @@ export function createMatch({ canvas, ctx, document }) {
     vy: -circularVelocity,
     angle: 1.5,
     inputKeys: { thrust: 'w', left: 'a', right: 'd', fire: 's' },
+    maxMissiles,
   });
 
   const ship2Id = spawnShip(world, {
@@ -30,6 +31,7 @@ export function createMatch({ canvas, ctx, document }) {
     vy: circularVelocity,
     angle: 4.75,
     inputKeys: { thrust: 'arrowup', left: 'arrowleft', right: 'arrowright', fire: 'arrowdown' },
+    maxMissiles,
   });
 
   return { world, planetId, ship1Id, ship2Id };

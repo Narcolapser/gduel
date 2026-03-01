@@ -38,6 +38,7 @@ export function spawnShip(world, {
   vy,
   angle,
   inputKeys,
+  maxMissiles = SHIP.maxMissiles,
 }) {
   const shipId = createEntity(world);
 
@@ -51,7 +52,7 @@ export function spawnShip(world, {
     height: SHIP.height,
     rotationSpeed: SHIP.rotationSpeed,
     thrustPower: SHIP.thrustPower,
-    maxMissiles: SHIP.maxMissiles,
+    maxMissiles,
     thrusted: false,
     wellContact: false,
   });

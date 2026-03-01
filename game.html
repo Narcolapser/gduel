@@ -123,6 +123,18 @@
             text-shadow: 0 0 4px rgba(255, 255, 255, 0.35);
         }
 
+        .menu-number {
+            width: min(220px, 60vw);
+            padding: 10px 12px;
+            background-color: rgba(0, 0, 0, 0.35);
+            color: #ffffff;
+            border: 2px solid #ffffff;
+            border-radius: 6px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(0.7rem, 1.8vw, 0.85rem);
+            box-sizing: border-box;
+        }
+
         .action-button {
             padding: 10px 20px;
             font-family: 'Press Start 2P', monospace;
@@ -183,6 +195,22 @@
             flex-direction: column;
             gap: 8px;
             align-items: center;
+        }
+
+        .ammo-count {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            height: 100%;
+        }
+
+        .ammo-count-line {
+            font-size: 0.9rem;
+            line-height: 1;
+            color: #ffffff;
+            text-shadow: 0 0 5px #ffffff;
         }
         .missile-icon {
             width: 10px;
@@ -318,6 +346,20 @@
                             <div id="gameSpeedValue" class="menu-value">1.0x</div>
                         </div>
                     </div>
+
+                    <div class="menu-option">
+                        <div class="menu-option-label">Max Shots</div>
+                        <div class="menu-option-controls">
+                            <input
+                                id="maxShotsInput"
+                                class="menu-number"
+                                type="number"
+                                step="1"
+                                value="3"
+                                aria-label="Max shots"
+                            />
+                        </div>
+                    </div>
                 </div>
                 <div id="ready-button-container" class="ready-button-container">
                     <div class="player-ready-buttons">
@@ -375,6 +417,7 @@
             const scoreP2 = document.getElementById('score-p2');
             const gameSpeedSlider = document.getElementById('gameSpeedSlider');
             const gameSpeedValue = document.getElementById('gameSpeedValue');
+            const maxShotsInput = document.getElementById('maxShotsInput');
 
             let isGameRunning = false;
             let isGamePaused = false;
@@ -391,6 +434,7 @@
             let lastFrameMs = null;
 
             let gameSpeed = 1;
+            let maxShots = 3;
 
             function clamp(n, min, max) {
                 return Math.max(min, Math.min(max, n));
@@ -412,6 +456,31 @@
                 }
             }
 
+            function parseMaxShots(value) {
+                // No upper bound; keep it integer-ish.
+                const n = Number(value);
+                if (!Number.isFinite(n)) return 3;
+                return Math.max(0, Math.floor(n));
+            }
+
+            function setMaxShots(value) {
+                maxShots = parseMaxShots(value);
+                if (maxShotsInput) maxShotsInput.value = String(maxShots);
+                try {
+                    localStorage.setItem('gduel.maxShots', String(maxShots));
+                } catch (_) {
+                    // Ignore storage failures
+                }
+            }
+
+            function applyMaxShotsToMatch() {
+                if (!match) return;
+                const ship1 = match.world.stores.ship.get(match.ship1Id);
+                const ship2 = match.world.stores.ship.get(match.ship2Id);
+                if (ship1) ship1.maxMissiles = maxShots;
+                if (ship2) ship2.maxMissiles = maxShots;
+            }
+
             // Initialize from storage.
             try {
                 const saved = localStorage.getItem('gduel.gameSpeed');
@@ -421,9 +490,25 @@
                 setGameSpeed(1);
             }
 
+            try {
+                const savedShots = localStorage.getItem('gduel.maxShots');
+                if (savedShots != null) setMaxShots(savedShots);
+                else setMaxShots(3);
+            } catch (_) {
+                setMaxShots(3);
+            }
+
             if (gameSpeedSlider) {
                 gameSpeedSlider.addEventListener('input', (e) => {
                     setGameSpeed(e.target.value);
+                });
+            }
+
+            if (maxShotsInput) {
+                maxShotsInput.addEventListener('input', (e) => {
+                    setMaxShots(e.target.value);
+                    applyMaxShotsToMatch();
+                    if (match) updateUi(document, getUiSnapshot(match.world));
                 });
             }
             
@@ -455,6 +540,7 @@
 
             function resetGame() {
                 if (!match) return;
+                applyMaxShotsToMatch();
                 resetMatch(match.world, match);
                 lastFrameMs = null;
             }
@@ -486,10 +572,12 @@
                 canvas.height = gameContainer.clientHeight;
 
                 if (!match) {
-                    match = createMatch({ canvas, ctx, document });
+                    match = createMatch({ canvas, ctx, document, maxMissiles: maxShots });
                 } else {
                     resizeMatch(match.world, match, { width: canvas.width, height: canvas.height });
                 }
+
+                applyMaxShotsToMatch();
 
                 resetGame();
 
