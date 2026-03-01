@@ -383,6 +383,20 @@
                             />
                         </div>
                     </div>
+
+                    <div class="menu-option">
+                        <div class="menu-option-label">Objective Score</div>
+                        <div class="menu-option-controls">
+                            <input
+                                id="objectiveScoreInput"
+                                class="menu-number"
+                                type="number"
+                                step="1"
+                                value="5"
+                                aria-label="Objective score"
+                            />
+                        </div>
+                    </div>
                 </div>
                 <div id="ready-button-container" class="ready-button-container">
                     <div class="player-ready-buttons">
@@ -443,6 +457,7 @@
             const gameSpeedValue = document.getElementById('gameSpeedValue');
             const borderModeSelect = document.getElementById('borderModeSelect');
             const maxShotsInput = document.getElementById('maxShotsInput');
+            const objectiveScoreInput = document.getElementById('objectiveScoreInput');
             const mapSelect = document.getElementById('mapSelect');
 
             let isGameRunning = false;
@@ -462,6 +477,7 @@
             let gameSpeed = 1;
             let maxShots = 3;
             let borderMode = 'outerSpace';
+            let objectiveScore = 5;
             let mapId = 'classic';
 
             function clamp(n, min, max) {
@@ -552,6 +568,23 @@
                 if (ship2) ship2.maxMissiles = maxShots;
             }
 
+            function parseObjectiveScore(value) {
+                const n = Number(value);
+                if (!Number.isFinite(n)) return 5;
+                // No upper bound; keep it a sensible positive integer.
+                return Math.max(1, Math.floor(n));
+            }
+
+            function setObjectiveScore(value) {
+                objectiveScore = parseObjectiveScore(value);
+                if (objectiveScoreInput) objectiveScoreInput.value = String(objectiveScore);
+                try {
+                    localStorage.setItem('gduel.objectiveScore', String(objectiveScore));
+                } catch (_) {
+                    // Ignore storage failures
+                }
+            }
+
             // Initialize from storage.
             try {
                 const saved = localStorage.getItem('gduel.gameSpeed');
@@ -585,6 +618,14 @@
                 setMaxShots(3);
             }
 
+            try {
+                const savedObjective = localStorage.getItem('gduel.objectiveScore');
+                if (savedObjective != null) setObjectiveScore(savedObjective);
+                else setObjectiveScore(5);
+            } catch (_) {
+                setObjectiveScore(5);
+            }
+
             if (gameSpeedSlider) {
                 gameSpeedSlider.addEventListener('input', (e) => {
                     setGameSpeed(e.target.value);
@@ -610,6 +651,12 @@
                     setMaxShots(e.target.value);
                     applyMaxShotsToMatch();
                     if (match) updateUi(document, getUiSnapshot(match.world));
+                });
+            }
+
+            if (objectiveScoreInput) {
+                objectiveScoreInput.addEventListener('input', (e) => {
+                    setObjectiveScore(e.target.value);
                 });
             }
             
@@ -655,7 +702,7 @@
                 stepWorld(
                     match.world,
                     { keys: {}, justPressed: new Set() },
-                    { dtMs: 0, planetId: match.planetId, borderMode }
+                    { dtMs: 0, planetId: match.planetId, borderMode, winningScore: objectiveScore }
                 );
                 updateUi(document, getUiSnapshot(match.world));
             }
@@ -672,9 +719,9 @@
                 const p1 = snapshot.ships.find(s => s.playerIndex === 1);
                 const p2 = snapshot.ships.find(s => s.playerIndex === 2);
 
-                if (p1 && p1.score >= 5) {
+                if (p1 && p1.score >= objectiveScore) {
                     finalMessage = `Player 1 (Green, ${player1Type}) wins the match with ${p1.score} points!`;
-                } else if (p2 && p2.score >= 5) {
+                } else if (p2 && p2.score >= objectiveScore) {
                     finalMessage = `Player 2 (Red, ${player2Type}) wins the match with ${p2.score} points!`;
                 }
 
@@ -700,7 +747,7 @@
                 stepWorld(
                     match.world,
                     { keys: {}, justPressed: new Set() },
-                    { dtMs: 0, planetId: match.planetId, borderMode }
+                    { dtMs: 0, planetId: match.planetId, borderMode, winningScore: objectiveScore }
                 );
                 updateUi(document, getUiSnapshot(match.world));
             }
@@ -734,7 +781,7 @@
                 stepWorld(
                     match.world,
                     { keys: {}, justPressed: new Set() },
-                    { dtMs: 0, planetId: match.planetId, borderMode }
+                    { dtMs: 0, planetId: match.planetId, borderMode, winningScore: objectiveScore }
                 );
                 updateUi(document, getUiSnapshot(match.world));
 
@@ -780,7 +827,7 @@
                 const result = stepWorld(
                     match.world,
                     { keys, justPressed },
-                    { dtMs, planetId: match.planetId, borderMode }
+                    { dtMs, planetId: match.planetId, borderMode, winningScore: objectiveScore }
                 );
                 justPressed.clear();
 

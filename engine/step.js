@@ -664,9 +664,9 @@ function noFuelSystem(world, planetId) {
   }
 }
 
-function checkWin(world) {
+function checkWin(world, winningScore) {
   for (const [shipId, score] of world.stores.score) {
-    if (score.value >= WINNING_SCORE) return shipId;
+    if (score.value >= winningScore) return shipId;
   }
   return null;
 }
@@ -792,7 +792,11 @@ function drawOffscreenIndicator(ctx, canvas, x, y, color) {
   ctx.restore();
 }
 
-export function stepWorld(world, { keys, justPressed }, { dtMs, planetId, borderMode = 'outerSpace' }) {
+export function stepWorld(
+  world,
+  { keys, justPressed },
+  { dtMs, planetId, borderMode = 'outerSpace', winningScore = WINNING_SCORE },
+) {
   const dtFactor = dtFactorFromMs(dtMs);
 
   applyPlayerAndBotInput(world, keys, justPressed, dtFactor);
@@ -817,7 +821,7 @@ export function stepWorld(world, { keys, justPressed }, { dtMs, planetId, border
   drawWorld(world, planetId);
 
   return {
-    winnerShipId: checkWin(world),
+    winnerShipId: checkWin(world, winningScore),
   };
 }
 
