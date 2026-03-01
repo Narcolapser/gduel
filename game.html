@@ -85,6 +85,44 @@
             white-space: pre-wrap;
         }
 
+        .menu-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 10px 0 5px 0;
+        }
+
+        .menu-option {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 100%;
+        }
+
+        .menu-option-label {
+            font-size: clamp(0.7rem, 1.8vw, 0.9rem);
+            color: var(--text-color);
+            text-shadow: 0 0 4px rgba(255, 255, 255, 0.35);
+            line-height: 1.4;
+        }
+
+        .menu-option-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .menu-slider {
+            width: min(360px, 75vw);
+        }
+
+        .menu-value {
+            min-width: 5ch;
+            font-size: clamp(0.7rem, 1.8vw, 0.9rem);
+            color: #ffffff;
+            text-shadow: 0 0 4px rgba(255, 255, 255, 0.35);
+        }
+
         .action-button {
             padding: 10px 20px;
             font-family: 'Press Start 2P', monospace;
@@ -263,6 +301,24 @@
             <canvas id="gameCanvas"></canvas>
             <div id="messageBox">
                 <div id="messageText">Welcome!</div>
+                <div id="menuOptions" class="menu-options">
+                    <div class="menu-option">
+                        <div class="menu-option-label">Game Speed</div>
+                        <div class="menu-option-controls">
+                            <input
+                                id="gameSpeedSlider"
+                                class="menu-slider"
+                                type="range"
+                                min="0.5"
+                                max="4"
+                                step="0.1"
+                                value="1"
+                                aria-label="Game speed"
+                            />
+                            <div id="gameSpeedValue" class="menu-value">1.0x</div>
+                        </div>
+                    </div>
+                </div>
                 <div id="ready-button-container" class="ready-button-container">
                     <div class="player-ready-buttons">
                         <div class="ready-label" style="color: #00ff00;">Player 1</div>
@@ -317,6 +373,8 @@
             const pauseButtonContainer = document.getElementById('pause-button-container');
             const scoreP1 = document.getElementById('score-p1');
             const scoreP2 = document.getElementById('score-p2');
+            const gameSpeedSlider = document.getElementById('gameSpeedSlider');
+            const gameSpeedValue = document.getElementById('gameSpeedValue');
 
             let isGameRunning = false;
             let isGamePaused = false;
@@ -331,6 +389,43 @@
             let keys = {};
             let justPressed = new Set();
             let lastFrameMs = null;
+
+            let gameSpeed = 1;
+
+            function clamp(n, min, max) {
+                return Math.max(min, Math.min(max, n));
+            }
+
+            function formatSpeed(n) {
+                // Keep display stable: 1 decimal plus trailing 'x'.
+                return `${n.toFixed(1)}x`;
+            }
+
+            function setGameSpeed(speed) {
+                gameSpeed = clamp(Number(speed) || 1, 0.5, 4);
+                if (gameSpeedSlider) gameSpeedSlider.value = String(gameSpeed);
+                if (gameSpeedValue) gameSpeedValue.textContent = formatSpeed(gameSpeed);
+                try {
+                    localStorage.setItem('gduel.gameSpeed', String(gameSpeed));
+                } catch (_) {
+                    // Ignore storage failures (privacy mode, etc.)
+                }
+            }
+
+            // Initialize from storage.
+            try {
+                const saved = localStorage.getItem('gduel.gameSpeed');
+                if (saved != null) setGameSpeed(parseFloat(saved));
+                else setGameSpeed(1);
+            } catch (_) {
+                setGameSpeed(1);
+            }
+
+            if (gameSpeedSlider) {
+                gameSpeedSlider.addEventListener('input', (e) => {
+                    setGameSpeed(e.target.value);
+                });
+            }
             
             document.addEventListener('keydown', (e) => {
                 const k = e.key.toLowerCase();
@@ -470,8 +565,11 @@
 
                 const now = performance.now();
                 if (lastFrameMs === null) lastFrameMs = now;
-                const dtMs = Math.min(50, now - lastFrameMs);
+                const dtRealMs = Math.min(50, now - lastFrameMs);
                 lastFrameMs = now;
+
+                const dtMs = dtRealMs * gameSpeed;
+                match.world.resources.gameTimeMs += dtMs;
 
                 setBotEnabled(match.world, match.ship1Id, isPlayer1Bot);
                 setBotEnabled(match.world, match.ship2Id, isPlayer2Bot);

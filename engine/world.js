@@ -27,20 +27,27 @@ function makeStores() {
 export function createWorld({ canvas, ctx, document, now = () => performance.now() }) {
   const stores = makeStores();
 
+  // The engine uses `resources.now()` for all timers (missile TTL, respawns, etc.).
+  // We keep a separate game-time clock so the simulation speed can be scaled
+  // deterministically by the main loop.
+  const resources = {
+    canvas,
+    ctx,
+    document,
+    realNow: now,
+    gameTimeMs: 0,
+    now: () => resources.gameTimeMs,
+    explosions: [],
+    noFuelStartMs: null,
+  };
+
   return {
     nextId: 1,
     entities: new Set(),
     dead: new Set(),
     events: [],
     stores,
-    resources: {
-      canvas,
-      ctx,
-      document,
-      now,
-      explosions: [],
-      noFuelStartMs: null,
-    },
+    resources,
   };
 }
 

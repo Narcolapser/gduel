@@ -44,6 +44,7 @@ export function resetMatch(world, { planetId, ship1Id, ship2Id }) {
   respawnShip(world, ship1Id, planetId, 0);
   respawnShip(world, ship2Id, planetId, 0);
 
+  world.resources.gameTimeMs = 0;
   world.resources.explosions = [];
   world.resources.noFuelStartMs = null;
 }
