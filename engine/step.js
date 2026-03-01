@@ -203,35 +203,143 @@ function movementSystem(world, dtFactor) {
   }
 }
 
-function boundarySystems(world, dtFactor) {
-  const canvas = world.resources.canvas;
-  const canvasCenterX = canvas.width / 2;
-  const canvasCenterY = canvas.height / 2;
-  const canvasMaxDist = Math.sqrt((canvas.width / 2) ** 2 + (canvas.height / 2) ** 2);
+function radiusFor(world, id) {
+  return world.stores.collider.get(id)?.radius ?? 0;
+}
 
-  // Ship drag back toward center.
+function borderSystem(world, { borderMode, planetId }) {
+  if (borderMode === 'outerSpace') return;
+
+  const canvas = world.resources.canvas;
+  const width = canvas.width;
+  const height = canvas.height;
+  const nowMs = world.resources.now();
+
+  const wrapCenter = (value, max) => {
+    // Keep within [0, max] while preserving velocity.
+    // Using while avoids edge issues with huge dt.
+    while (value < 0) value += max;
+    while (value > max) value -= max;
+    return value;
+  };
+
+  // Ships.
   for (const shipId of shipIds(world)) {
     if (isRespawning(world, shipId)) continue;
 
     const t = world.stores.transform.get(shipId);
     const v = world.stores.velocity.get(shipId);
+    const ship = world.stores.ship.get(shipId);
+    if (!t || !v || !ship) continue;
 
-    const distToCenter = Math.sqrt((t.x - canvasCenterX) ** 2 + (t.y - canvasCenterY) ** 2);
-    if (distToCenter > canvasMaxDist) {
-      const dragStrength = (distToCenter - canvasMaxDist) / BOUNDARY.dragZoneWidth;
-      const dragAngle = Math.atan2(canvasCenterY - t.y, canvasCenterX - t.x);
-      v.x += dragStrength * Math.cos(dragAngle) * BOUNDARY.dragCoeff * dtFactor;
-      v.y += dragStrength * Math.sin(dragAngle) * BOUNDARY.dragCoeff * dtFactor;
+    const r = radiusFor(world, shipId);
+    const hitLeft = t.x - r < 0;
+    const hitRight = t.x + r > width;
+    const hitTop = t.y - r < 0;
+    const hitBottom = t.y + r > height;
+
+    const wrapLeft = t.x < 0;
+    const wrapRight = t.x > width;
+    const wrapTop = t.y < 0;
+    const wrapBottom = t.y > height;
+
+    if (borderMode === 'wrap') {
+      if (wrapLeft || wrapRight || wrapTop || wrapBottom) {
+        t.x = wrapCenter(t.x, width);
+        t.y = wrapCenter(t.y, height);
+      }
+      continue;
     }
+
+    if (!(hitLeft || hitRight || hitTop || hitBottom)) continue;
+
+    if (borderMode === 'concrete') {
+      if (scheduleRespawnIfNeeded(world, shipId, nowMs)) {
+        markExplosion(world, t.x, t.y, ship.color);
+        v.x = 0;
+        v.y = 0;
+      }
+      continue;
+    }
+
+    if (borderMode === 'rubber') {
+      if (hitLeft) {
+        t.x = r;
+        v.x = Math.abs(v.x);
+      }
+      if (hitRight) {
+        t.x = width - r;
+        v.x = -Math.abs(v.x);
+      }
+      if (hitTop) {
+        t.y = r;
+        v.y = Math.abs(v.y);
+      }
+      if (hitBottom) {
+        t.y = height - r;
+        v.y = -Math.abs(v.y);
+      }
+      continue;
+    }
+
+    // wrap handled above
   }
 
-  // Missile out-of-bounds kills.
+  // Missiles.
   for (const missileId of missileIds(world)) {
+    if (world.dead.has(missileId)) continue;
+
     const t = world.stores.transform.get(missileId);
-    const distToCenter = Math.sqrt((t.x - canvasCenterX) ** 2 + (t.y - canvasCenterY) ** 2);
-    if (distToCenter > canvasMaxDist + MISSILE.offscreenKillBuffer) {
-      world.dead.add(missileId);
+    const v = world.stores.velocity.get(missileId);
+    if (!t || !v) continue;
+
+    const r = radiusFor(world, missileId);
+    const hitLeft = t.x - r < 0;
+    const hitRight = t.x + r > width;
+    const hitTop = t.y - r < 0;
+    const hitBottom = t.y + r > height;
+
+    const wrapLeft = t.x < 0;
+    const wrapRight = t.x > width;
+    const wrapTop = t.y < 0;
+    const wrapBottom = t.y > height;
+
+    if (borderMode === 'wrap') {
+      if (wrapLeft || wrapRight || wrapTop || wrapBottom) {
+        t.x = wrapCenter(t.x, width);
+        t.y = wrapCenter(t.y, height);
+      }
+      continue;
     }
+
+    if (!(hitLeft || hitRight || hitTop || hitBottom)) continue;
+
+    if (borderMode === 'concrete') {
+      world.dead.add(missileId);
+      continue;
+    }
+
+    if (borderMode === 'rubber') {
+      if (hitLeft) {
+        t.x = r;
+        v.x = Math.abs(v.x);
+      }
+      if (hitRight) {
+        t.x = width - r;
+        v.x = -Math.abs(v.x);
+      }
+      if (hitTop) {
+        t.y = r;
+        v.y = Math.abs(v.y);
+      }
+      if (hitBottom) {
+        t.y = height - r;
+        v.y = -Math.abs(v.y);
+      }
+      continue;
+    }
+
+    // wrap handled above
   }
 }
 
@@ -667,7 +775,7 @@ function drawOffscreenIndicator(ctx, canvas, x, y, color) {
   ctx.restore();
 }
 
-export function stepWorld(world, { keys, justPressed }, { dtMs, planetId }) {
+export function stepWorld(world, { keys, justPressed }, { dtMs, planetId, borderMode = 'outerSpace' }) {
   const dtFactor = dtFactorFromMs(dtMs);
 
   applyPlayerAndBotInput(world, keys, justPressed, dtFactor);
@@ -676,7 +784,7 @@ export function stepWorld(world, { keys, justPressed }, { dtMs, planetId }) {
 
   gravitySystem(world, dtFactor);
   movementSystem(world, dtFactor);
-  boundarySystems(world, dtFactor);
+  borderSystem(world, { borderMode, planetId });
 
   lifetimeSystem(world);
   collisionSystem(world);

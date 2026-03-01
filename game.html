@@ -348,6 +348,18 @@
                     </div>
 
                     <div class="menu-option">
+                        <div class="menu-option-label">Border</div>
+                        <div class="menu-option-controls">
+                            <select id="borderModeSelect" class="menu-number" aria-label="Border mode">
+                                <option value="outerSpace">outer space</option>
+                                <option value="concrete">concrete</option>
+                                <option value="rubber">rubber</option>
+                                <option value="wrap">wrap</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="menu-option">
                         <div class="menu-option-label">Max Shots</div>
                         <div class="menu-option-controls">
                             <input
@@ -415,8 +427,10 @@
             const pauseButtonContainer = document.getElementById('pause-button-container');
             const scoreP1 = document.getElementById('score-p1');
             const scoreP2 = document.getElementById('score-p2');
+            const gameContainer = document.getElementById('gameContainer');
             const gameSpeedSlider = document.getElementById('gameSpeedSlider');
             const gameSpeedValue = document.getElementById('gameSpeedValue');
+            const borderModeSelect = document.getElementById('borderModeSelect');
             const maxShotsInput = document.getElementById('maxShotsInput');
 
             let isGameRunning = false;
@@ -435,6 +449,7 @@
 
             let gameSpeed = 1;
             let maxShots = 3;
+            let borderMode = 'outerSpace';
 
             function clamp(n, min, max) {
                 return Math.max(min, Math.min(max, n));
@@ -453,6 +468,29 @@
                     localStorage.setItem('gduel.gameSpeed', String(gameSpeed));
                 } catch (_) {
                     // Ignore storage failures (privacy mode, etc.)
+                }
+            }
+
+            function borderColorFor(mode) {
+                if (mode === 'concrete') return 'darkgray';
+                if (mode === 'rubber') return 'hotpink';
+                if (mode === 'wrap') return 'yellow';
+                return 'white';
+            }
+
+            function applyBorderColor() {
+                if (!gameContainer) return;
+                gameContainer.style.borderColor = borderColorFor(borderMode);
+            }
+
+            function setBorderMode(mode) {
+                borderMode = String(mode || 'outerSpace');
+                if (borderModeSelect) borderModeSelect.value = borderMode;
+                applyBorderColor();
+                try {
+                    localStorage.setItem('gduel.borderMode', borderMode);
+                } catch (_) {
+                    // Ignore storage failures
                 }
             }
 
@@ -491,6 +529,14 @@
             }
 
             try {
+                const savedBorder = localStorage.getItem('gduel.borderMode');
+                if (savedBorder != null) setBorderMode(savedBorder);
+                else setBorderMode('outerSpace');
+            } catch (_) {
+                setBorderMode('outerSpace');
+            }
+
+            try {
                 const savedShots = localStorage.getItem('gduel.maxShots');
                 if (savedShots != null) setMaxShots(savedShots);
                 else setMaxShots(3);
@@ -501,6 +547,12 @@
             if (gameSpeedSlider) {
                 gameSpeedSlider.addEventListener('input', (e) => {
                     setGameSpeed(e.target.value);
+                });
+            }
+
+            if (borderModeSelect) {
+                borderModeSelect.addEventListener('change', (e) => {
+                    setBorderMode(e.target.value);
                 });
             }
 
@@ -585,7 +637,7 @@
                 stepWorld(
                     match.world,
                     { keys: {}, justPressed: new Set() },
-                    { dtMs: 0, planetId: match.planetId }
+                    { dtMs: 0, planetId: match.planetId, borderMode }
                 );
                 updateUi(document, getUiSnapshot(match.world));
             }
@@ -619,7 +671,7 @@
                 stepWorld(
                     match.world,
                     { keys: {}, justPressed: new Set() },
-                    { dtMs: 0, planetId: match.planetId }
+                    { dtMs: 0, planetId: match.planetId, borderMode }
                 );
                 updateUi(document, getUiSnapshot(match.world));
 
@@ -665,7 +717,7 @@
                 const result = stepWorld(
                     match.world,
                     { keys, justPressed },
-                    { dtMs, planetId: match.planetId }
+                    { dtMs, planetId: match.planetId, borderMode }
                 );
                 justPressed.clear();
 
