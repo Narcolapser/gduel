@@ -99,10 +99,14 @@ export function respawnShip(world, shipId, planetId, invulnerableMs = SHIP.invul
   const nowMs = world.resources.now();
   world.stores.invulnerableUntilMs.set(shipId, nowMs + invulnerableMs);
 
-  // Clear missiles owned by this ship (without effects).
-  for (const [mid, owner] of world.stores.owner) {
-    if (owner.id === shipId) {
-      world.dead.add(mid);
+  // When enabled, missiles do not persist across respawns.
+  // When disabled, missiles continue to exist after the ship respawns.
+  if (world.resources.missilesDieWithShip) {
+    // Clear missiles owned by this ship (without effects).
+    for (const [mid, owner] of world.stores.owner) {
+      if (owner.id === shipId) {
+        world.dead.add(mid);
+      }
     }
   }
 

@@ -397,6 +397,13 @@
                             />
                         </div>
                     </div>
+
+                    <div class="menu-option">
+                        <div class="menu-option-label">Missiles die with ship</div>
+                        <div class="menu-option-controls">
+                            <input id="missilesDieWithShipCheckbox" type="checkbox" aria-label="Missiles die with ship" />
+                        </div>
+                    </div>
                 </div>
                 <div id="ready-button-container" class="ready-button-container">
                     <div class="player-ready-buttons">
@@ -458,6 +465,7 @@
             const borderModeSelect = document.getElementById('borderModeSelect');
             const maxShotsInput = document.getElementById('maxShotsInput');
             const objectiveScoreInput = document.getElementById('objectiveScoreInput');
+            const missilesDieWithShipCheckbox = document.getElementById('missilesDieWithShipCheckbox');
             const mapSelect = document.getElementById('mapSelect');
 
             let isGameRunning = false;
@@ -478,6 +486,7 @@
             let maxShots = 3;
             let borderMode = 'outerSpace';
             let objectiveScore = 5;
+            let missilesDieWithShip = false;
             let mapId = 'classic';
 
             function clamp(n, min, max) {
@@ -568,6 +577,17 @@
                 if (ship2) ship2.maxMissiles = maxShots;
             }
 
+            function setMissilesDieWithShip(enabled) {
+                missilesDieWithShip = Boolean(enabled);
+                if (missilesDieWithShipCheckbox) missilesDieWithShipCheckbox.checked = missilesDieWithShip;
+                if (match) match.world.resources.missilesDieWithShip = missilesDieWithShip;
+                try {
+                    localStorage.setItem('gduel.missilesDieWithShip', missilesDieWithShip ? '1' : '0');
+                } catch (_) {
+                    // Ignore storage failures
+                }
+            }
+
             function parseObjectiveScore(value) {
                 const n = Number(value);
                 if (!Number.isFinite(n)) return 5;
@@ -626,6 +646,14 @@
                 setObjectiveScore(5);
             }
 
+            try {
+                const savedMissilesDie = localStorage.getItem('gduel.missilesDieWithShip');
+                if (savedMissilesDie != null) setMissilesDieWithShip(savedMissilesDie !== '0');
+                else setMissilesDieWithShip(false);
+            } catch (_) {
+                setMissilesDieWithShip(false);
+            }
+
             if (gameSpeedSlider) {
                 gameSpeedSlider.addEventListener('input', (e) => {
                     setGameSpeed(e.target.value);
@@ -657,6 +685,12 @@
             if (objectiveScoreInput) {
                 objectiveScoreInput.addEventListener('input', (e) => {
                     setObjectiveScore(e.target.value);
+                });
+            }
+
+            if (missilesDieWithShipCheckbox) {
+                missilesDieWithShipCheckbox.addEventListener('change', (e) => {
+                    setMissilesDieWithShip(e.target.checked);
                 });
             }
             
@@ -702,7 +736,13 @@
                 stepWorld(
                     match.world,
                     { keys: {}, justPressed: new Set() },
-                    { dtMs: 0, planetId: match.planetId, borderMode, winningScore: objectiveScore }
+                    {
+                        dtMs: 0,
+                        planetId: match.planetId,
+                        borderMode,
+                        winningScore: objectiveScore,
+                        missilesDieWithShip,
+                    }
                 );
                 updateUi(document, getUiSnapshot(match.world));
             }
@@ -747,7 +787,13 @@
                 stepWorld(
                     match.world,
                     { keys: {}, justPressed: new Set() },
-                    { dtMs: 0, planetId: match.planetId, borderMode, winningScore: objectiveScore }
+                    {
+                        dtMs: 0,
+                        planetId: match.planetId,
+                        borderMode,
+                        winningScore: objectiveScore,
+                        missilesDieWithShip,
+                    }
                 );
                 updateUi(document, getUiSnapshot(match.world));
             }
@@ -781,7 +827,13 @@
                 stepWorld(
                     match.world,
                     { keys: {}, justPressed: new Set() },
-                    { dtMs: 0, planetId: match.planetId, borderMode, winningScore: objectiveScore }
+                    {
+                        dtMs: 0,
+                        planetId: match.planetId,
+                        borderMode,
+                        winningScore: objectiveScore,
+                        missilesDieWithShip,
+                    }
                 );
                 updateUi(document, getUiSnapshot(match.world));
 
@@ -827,7 +879,13 @@
                 const result = stepWorld(
                     match.world,
                     { keys, justPressed },
-                    { dtMs, planetId: match.planetId, borderMode, winningScore: objectiveScore }
+                    {
+                        dtMs,
+                        planetId: match.planetId,
+                        borderMode,
+                        winningScore: objectiveScore,
+                        missilesDieWithShip,
+                    }
                 );
                 justPressed.clear();
 

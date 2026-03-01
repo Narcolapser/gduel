@@ -28,6 +28,22 @@ function markExplosion(world, x, y, color) {
   world.resources.explosions.push(createExplosionParticles({ x, y, color }));
 }
 
+function killMissilesOwnedByShip(world, shipId, { explode }) {
+  for (const [missileId, owner] of world.stores.owner) {
+    if (owner.id !== shipId) continue;
+    if (world.dead.has(missileId)) continue;
+    if (!world.entities.has(missileId)) continue;
+    if (!world.stores.missile.has(missileId)) continue;
+
+    if (explode) {
+      const t = world.stores.transform.get(missileId);
+      const m = world.stores.missile.get(missileId);
+      if (t && m) markExplosion(world, t.x, t.y, m.color);
+    }
+    world.dead.add(missileId);
+  }
+}
+
 function shipIds(world) {
   const ids = [];
   for (const [id] of world.stores.ship) ids.push(id);
@@ -273,6 +289,9 @@ function borderSystem(world, { borderMode, planetId }) {
     if (borderMode === 'concrete') {
       if (scheduleRespawnIfNeeded(world, shipId, nowMs)) {
         markExplosion(world, t.x, t.y, ship.color);
+        if (world.resources.missilesDieWithShip) {
+          killMissilesOwnedByShip(world, shipId, { explode: true });
+        }
         v.x = 0;
         v.y = 0;
       }
@@ -514,6 +533,9 @@ function rulesSystem(world, planetId) {
       // Destroy + respawn.
       if (scheduleRespawnIfNeeded(world, shipId, nowMs)) {
         markExplosion(world, t.x, t.y, ship.color);
+        if (world.resources.missilesDieWithShip) {
+          killMissilesOwnedByShip(world, shipId, { explode: true });
+        }
         // Freeze immediately so it stops participating in the sim.
         const v = world.stores.velocity.get(shipId);
         if (v) {
@@ -537,6 +559,9 @@ function rulesSystem(world, planetId) {
       world.dead.add(missileId);
       if (scheduleRespawnIfNeeded(world, shipId, nowMs)) {
         markExplosion(world, shipT.x, shipT.y, ship.color);
+        if (world.resources.missilesDieWithShip) {
+          killMissilesOwnedByShip(world, shipId, { explode: true });
+        }
         const v = world.stores.velocity.get(shipId);
         if (v) {
           v.x = 0;
@@ -571,6 +596,9 @@ function rulesSystem(world, planetId) {
       if (aSpeed > bSpeed) {
         if (scheduleRespawnIfNeeded(world, b, nowMs)) {
           markExplosion(world, bT.x, bT.y, bShip.color);
+          if (world.resources.missilesDieWithShip) {
+            killMissilesOwnedByShip(world, b, { explode: true });
+          }
           const v = world.stores.velocity.get(b);
           if (v) {
             v.x = 0;
@@ -581,6 +609,9 @@ function rulesSystem(world, planetId) {
       } else if (bSpeed > aSpeed) {
         if (scheduleRespawnIfNeeded(world, a, nowMs)) {
           markExplosion(world, aT.x, aT.y, aShip.color);
+          if (world.resources.missilesDieWithShip) {
+            killMissilesOwnedByShip(world, a, { explode: true });
+          }
           const v = world.stores.velocity.get(a);
           if (v) {
             v.x = 0;
@@ -591,6 +622,9 @@ function rulesSystem(world, planetId) {
       } else {
         if (scheduleRespawnIfNeeded(world, a, nowMs)) {
           markExplosion(world, aT.x, aT.y, aShip.color);
+          if (world.resources.missilesDieWithShip) {
+            killMissilesOwnedByShip(world, a, { explode: true });
+          }
           const v = world.stores.velocity.get(a);
           if (v) {
             v.x = 0;
@@ -599,6 +633,9 @@ function rulesSystem(world, planetId) {
         }
         if (scheduleRespawnIfNeeded(world, b, nowMs)) {
           markExplosion(world, bT.x, bT.y, bShip.color);
+          if (world.resources.missilesDieWithShip) {
+            killMissilesOwnedByShip(world, b, { explode: true });
+          }
           const v = world.stores.velocity.get(b);
           if (v) {
             v.x = 0;
@@ -654,6 +691,11 @@ function noFuelSystem(world, planetId) {
 
       markExplosion(world, t1.x, t1.y, c1);
       markExplosion(world, t2.x, t2.y, c2);
+
+      if (world.resources.missilesDieWithShip) {
+        killMissilesOwnedByShip(world, s1, { explode: true });
+        killMissilesOwnedByShip(world, s2, { explode: true });
+      }
 
       world.stores.respawnAtMs.set(s1, nowMs + SHIP.respawnDelayMs);
       world.stores.respawnAtMs.set(s2, nowMs + SHIP.respawnDelayMs);
@@ -795,8 +837,15 @@ function drawOffscreenIndicator(ctx, canvas, x, y, color) {
 export function stepWorld(
   world,
   { keys, justPressed },
-  { dtMs, planetId, borderMode = 'outerSpace', winningScore = WINNING_SCORE },
+  {
+    dtMs,
+    planetId,
+    borderMode = 'outerSpace',
+    winningScore = WINNING_SCORE,
+    missilesDieWithShip = false,
+  },
 ) {
+  world.resources.missilesDieWithShip = Boolean(missilesDieWithShip);
   const dtFactor = dtFactorFromMs(dtMs);
 
   applyPlayerAndBotInput(world, keys, justPressed, dtFactor);

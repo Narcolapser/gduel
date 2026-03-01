@@ -44,6 +44,7 @@ export function createWorld({ canvas, ctx, document, now = () => performance.now
     explosions: [],
     noFuelStartMs: null,
     spawnDistance: null,
+    missilesDieWithShip: false,
   };
 
   return {
