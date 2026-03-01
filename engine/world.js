@@ -43,6 +43,7 @@ export function createWorld({ canvas, ctx, document, now = () => performance.now
     now: () => resources.gameTimeMs,
     explosions: [],
     noFuelStartMs: null,
+    spawnDistance: null,
   };
 
   return {

@@ -9,11 +9,14 @@ export function createMatch({ canvas, ctx, document, maxMissiles = SHIP.maxMissi
   const map = createMap(world, { mapId, width: canvas.width, height: canvas.height });
   const planetId = map.anchorId;
 
+  // Per-map spawn tuning (used for initial spawn + respawns).
+  world.resources.spawnDistance = map.spawnDistance ?? SHIP.initialDistance;
+
   // Choose a reasonable spawn mu: if the anchor isn't a well (most maps),
   // use the default PLANET tuning.
   const spawnMu = PLANET.mu;
 
-  const distance = SHIP.initialDistance;
+  const distance = world.resources.spawnDistance;
   const circularVelocity = 0.9 * Math.sqrt(spawnMu / distance);
 
   const anchorT = world.stores.transform.get(planetId);

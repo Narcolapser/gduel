@@ -41,7 +41,7 @@ export function createMap(world, { mapId, width, height }) {
       color: PLANET.color,
       softening: PLANET.softening,
     });
-    return { id, anchorId };
+    return { id, anchorId, spawnDistance: SHIP.initialDistance };
   }
 
   if (id === 'earth') {
@@ -73,7 +73,7 @@ export function createMap(world, { mapId, width, height }) {
       phase: 0,
     });
 
-    return { id, anchorId };
+    return { id, anchorId, spawnDistance: SHIP.initialDistance };
   }
 
   if (id === 'pluto') {
@@ -113,7 +113,7 @@ export function createMap(world, { mapId, width, height }) {
       phase: phase + Math.PI,
     });
 
-    return { id, anchorId };
+    return { id, anchorId, spawnDistance: 160 };
   }
 
   // Fallback.
@@ -125,5 +125,5 @@ export function createMap(world, { mapId, width, height }) {
     color: PLANET.color,
     softening: PLANET.softening,
   });
-  return { id: 'classic', anchorId };
+  return { id: 'classic', anchorId, spawnDistance: SHIP.initialDistance };
 }

@@ -70,7 +70,7 @@ export function respawnShip(world, shipId, planetId, invulnerableMs = SHIP.invul
   const well = world.stores.gravityWell.get(planetId);
   const ship = world.stores.ship.get(shipId);
 
-  const distance = SHIP.initialDistance;
+  const distance = world.resources.spawnDistance ?? SHIP.initialDistance;
   const circularVelocity = 0.9 * Math.sqrt((well?.mu ?? PLANET.mu) / distance);
 
   const isP1 = ship.playerIndex === 1;
