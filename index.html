@@ -75,6 +75,22 @@
             white-space: nowrap;
         }
 
+        .version-text {
+            position: absolute;
+            top: 0.9rem;
+            right: 0.9rem;
+            padding: 0.5rem 0.75rem;
+            border: 2px solid #fff;
+            border-radius: 6px;
+            background-color: rgba(0, 0, 0, 0.55);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
+            font-size: clamp(0.65rem, 1.6vw, 0.85rem);
+            letter-spacing: 0.02em;
+            text-transform: lowercase;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
         @keyframes continuePulse {
             0% { opacity: 0.65; }
             100% { opacity: 1; }
@@ -155,6 +171,7 @@
             class="title-image"
             onerror="this.onerror=null; this.src='https://placehold.co/900x506/020826/EECFFF?text=Gravity+Duel+Cover'"
         >
+        <div class="version-text">version 0.9</div>
         <div class="continue-text">click to continue</div>
     </div>
 
