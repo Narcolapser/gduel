@@ -190,6 +190,23 @@ function gravitySystem(world, dtFactor) {
   }
 }
 
+function orbitSystem(world) {
+  if (!world.stores.orbit || world.stores.orbit.size === 0) return;
+  const tSec = world.resources.now() / 1000;
+
+  for (const [id, orbit] of world.stores.orbit) {
+    const t = world.stores.transform.get(id);
+    if (!t) continue;
+
+    const centerT = world.stores.transform.get(orbit.centerId);
+    if (!centerT) continue;
+
+    const angle = (orbit.phase ?? 0) + (orbit.angularSpeed ?? 0) * tSec;
+    t.x = centerT.x + orbit.radius * Math.cos(angle);
+    t.y = centerT.y + orbit.radius * Math.sin(angle);
+  }
+}
+
 function movementSystem(world, dtFactor) {
   for (const id of world.entities) {
     // Ships scheduled to respawn are removed from simulation immediately.
@@ -781,6 +798,8 @@ export function stepWorld(world, { keys, justPressed }, { dtMs, planetId, border
   applyPlayerAndBotInput(world, keys, justPressed, dtFactor);
   botSystem(world, dtFactor);
   fireSystem(world);
+
+  orbitSystem(world);
 
   gravitySystem(world, dtFactor);
   movementSystem(world, dtFactor);

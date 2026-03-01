@@ -360,6 +360,17 @@
                     </div>
 
                     <div class="menu-option">
+                        <div class="menu-option-label">Map</div>
+                        <div class="menu-option-controls">
+                            <select id="mapSelect" class="menu-number" aria-label="Map">
+                                <option value="classic">classic</option>
+                                <option value="earth">earth</option>
+                                <option value="pluto">pluto</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="menu-option">
                         <div class="menu-option-label">Max Shots</div>
                         <div class="menu-option-controls">
                             <input
@@ -432,6 +443,7 @@
             const gameSpeedValue = document.getElementById('gameSpeedValue');
             const borderModeSelect = document.getElementById('borderModeSelect');
             const maxShotsInput = document.getElementById('maxShotsInput');
+            const mapSelect = document.getElementById('mapSelect');
 
             let isGameRunning = false;
             let isGamePaused = false;
@@ -450,6 +462,7 @@
             let gameSpeed = 1;
             let maxShots = 3;
             let borderMode = 'outerSpace';
+            let mapId = 'classic';
 
             function clamp(n, min, max) {
                 return Math.max(min, Math.min(max, n));
@@ -491,6 +504,26 @@
                     localStorage.setItem('gduel.borderMode', borderMode);
                 } catch (_) {
                     // Ignore storage failures
+                }
+            }
+
+            function setMap(id) {
+                mapId = String(id || 'classic');
+                if (mapSelect) mapSelect.value = mapId;
+                try {
+                    localStorage.setItem('gduel.mapId', mapId);
+                } catch (_) {
+                    // Ignore storage failures
+                }
+
+                // Recreate the match only when not actively running.
+                if (!isGameRunning && !isGamePaused) {
+                    recreateMatch();
+                    player1Ready = false;
+                    player2Ready = false;
+                    isPlayer1Bot = false;
+                    isPlayer2Bot = false;
+                    showMessageBox('start', 'Click "Ready" to Begin');
                 }
             }
 
@@ -537,6 +570,14 @@
             }
 
             try {
+                const savedMap = localStorage.getItem('gduel.mapId');
+                if (savedMap != null) setMap(savedMap);
+                else setMap('classic');
+            } catch (_) {
+                setMap('classic');
+            }
+
+            try {
                 const savedShots = localStorage.getItem('gduel.maxShots');
                 if (savedShots != null) setMaxShots(savedShots);
                 else setMaxShots(3);
@@ -553,6 +594,14 @@
             if (borderModeSelect) {
                 borderModeSelect.addEventListener('change', (e) => {
                     setBorderMode(e.target.value);
+                });
+            }
+
+            if (mapSelect) {
+                mapSelect.addEventListener('change', (e) => {
+                    // Only allow changing map from the main menu / between rounds.
+                    if (isGameRunning || isGamePaused) return;
+                    setMap(e.target.value);
                 });
             }
 
@@ -597,6 +646,20 @@
                 lastFrameMs = null;
             }
 
+            function recreateMatch() {
+                match = createMatch({ canvas, ctx, document, maxMissiles: maxShots, mapId });
+                applyMaxShotsToMatch();
+                resetGame();
+
+                // Render a single frame for the start screen.
+                stepWorld(
+                    match.world,
+                    { keys: {}, justPressed: new Set() },
+                    { dtMs: 0, planetId: match.planetId, borderMode }
+                );
+                updateUi(document, getUiSnapshot(match.world));
+            }
+
             function endGame() {
                 isGameRunning = false;
                 cancelAnimationFrame(animationFrameId);
@@ -624,7 +687,7 @@
                 canvas.height = gameContainer.clientHeight;
 
                 if (!match) {
-                    match = createMatch({ canvas, ctx, document, maxMissiles: maxShots });
+                    match = createMatch({ canvas, ctx, document, maxMissiles: maxShots, mapId });
                 } else {
                     resizeMatch(match.world, match, { width: canvas.width, height: canvas.height });
                 }

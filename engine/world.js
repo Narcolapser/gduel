@@ -16,6 +16,10 @@ function makeStores() {
     gravityWell: new Map(), // {mu,radius,color,softening}
     gravityMultiplier: new Map(), // number
 
+    // Deterministic circular orbits (for moving gravity wells).
+    // {centerId:number, radius:number, angularSpeed:number, phase:number}
+    orbit: new Map(),
+
     playerInput: new Map(), // {thrust,left,right,fire}
     bot: new Map(), // {enabled:boolean}
 
