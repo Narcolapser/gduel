@@ -298,10 +298,9 @@
     </div>
 
     <script type="module">
-        import { Ship } from './ship.js';
-        import { Missile } from './missile.js';
-        import { basicBot } from './ai.js';
-        import { UserInput } from './input.js';
+        import { createMatch, resetMatch, resizeMatch, setBotEnabled } from './engine/game.js';
+        import { getUiSnapshot, stepWorld } from './engine/step.js';
+        import { updateUi } from './engine/ui.js';
 
         document.addEventListener('DOMContentLoaded', () => {
             const canvas = document.getElementById('gameCanvas');
@@ -318,8 +317,6 @@
             const pauseButtonContainer = document.getElementById('pause-button-container');
             const scoreP1 = document.getElementById('score-p1');
             const scoreP2 = document.getElementById('score-p2');
-            const fuelDisplayP1 = 'fuel-display-p1';
-            const fuelDisplayP2 = 'fuel-display-p2';
 
             let isGameRunning = false;
             let isGamePaused = false;
@@ -330,42 +327,29 @@
             let isPlayer1Bot = false;
             let isPlayer2Bot = false;
 
-            const WINNING_SCORE = 5;
-            const MAX_FUEL_SECONDS = 10;
-            const FUEL_PER_FRAME = (1 / (MAX_FUEL_SECONDS * 60)) * 2;
-            const NO_FUEL_TIMEOUT = 30000;
-
-            let noFuelTimer = null;
-
-            const planet = {
-                x: 0,
-                y: 0,
-                radius: 30,
-                color: '#ffffff'
-            };
-
-            const player1Ship = Ship(canvas, ctx, document, true);
-            const player1Input = UserInput(player1Ship, 'w', 'a', 'd', 's');
-            const player2Ship = Ship(canvas, ctx, document, false);
-            const player2Input = UserInput(player2Ship, 'arrowup', 'arrowleft', 'arrowright', 'arrowdown');
-
-            let missiles = [];
-            let explosions = [];
-
+            let match = null;
             let keys = {};
+            let justPressed = new Set();
+            let lastFrameMs = null;
             
             document.addEventListener('keydown', (e) => {
+                const k = e.key.toLowerCase();
+
                 if (isGameRunning && !isGamePaused) {
-                    if (e.key.toLowerCase() === 'y') {
+                    if (k === 'y') {
                         pauseGame();
-                    } else {
-                        keys[e.key.toLowerCase()] = true;
+                        return;
                     }
+
+                    if (!keys[k]) {
+                        justPressed.add(k);
+                    }
+                    keys[k] = true;
                 } else if (isGamePaused) {
-                    if (e.key.toLowerCase() === 'y') {
+                    if (k === 'y') {
                         resumeGame();
                     }
-                    if (e.key.toLowerCase() === 'n') {
+                    if (k === 'n') {
                         quitGame();
                     }
                 }
@@ -374,62 +358,10 @@
                 keys[e.key.toLowerCase()] = false;
             });
 
-            function createExplosion(x, y, color) {
-                const particleCount = 100;
-                const particles = [];
-                for (let i = 0; i < particleCount; i++) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const speed = Math.random() * 2 + 0.5;
-                    particles.push({
-                        x: x,
-                        y: y,
-                        size: Math.random() * 3 + 1,
-                        velocityX: Math.cos(angle) * speed,
-                        velocityY: Math.sin(angle) * speed,
-                        color: color,
-                        alpha: 1.0
-                    });
-                }
-                explosions.push({ particles: particles });
-            }
-
-            function drawExplosion(explosion) {
-                explosion.particles.forEach(p => {
-                    ctx.fillStyle = p.color;
-                    ctx.globalAlpha = p.alpha;
-                    ctx.fillRect(p.x, p.y, p.size, p.size);
-                });
-                ctx.globalAlpha = 1.0;
-            }
-
-            function updateExplosions() {
-                explosions.forEach(explosion => {
-                    explosion.particles.forEach(p => {
-                        p.x += p.velocityX;
-                        p.y += p.velocityY;
-                        p.alpha -= 0.01;
-                    });
-                    explosion.particles = explosion.particles.filter(p => p.alpha > 0);
-                });
-                explosions = explosions.filter(e => e.particles.length > 0);
-            }
-
             function resetGame() {
-                player1Ship.score = 0;
-                player2Ship.score = 0;
-                
-                player1Ship.resetInitialPosition();
-                player2Ship.resetInitialPosition();
-
-                missiles = [];
-                explosions = [];
-                noFuelTimer = null;
-            }
-
-            function checkWinCondition() {
-                if (player1Ship.score >= WINNING_SCORE || player2Ship.score >= WINNING_SCORE) {
-                    endGame();
-                }
+                if (!match) return;
+                resetMatch(match.world, match);
+                lastFrameMs = null;
             }
 
             function endGame() {
@@ -440,10 +372,14 @@
                 const player1Type = isPlayer1Bot ? 'Bot' : 'Human';
                 const player2Type = isPlayer2Bot ? 'Bot' : 'Human';
 
-                if (player1Ship.score >= WINNING_SCORE) {
-                    finalMessage = `Player 1 (Green, ${player1Type}) wins the match with ${player1Ship.score} points!`;
-                } else if (player2Ship.score >= WINNING_SCORE) {
-                    finalMessage = `Player 2 (Red, ${player2Type}) wins the match with ${player2Ship.score} points!`;
+                const snapshot = getUiSnapshot(match.world);
+                const p1 = snapshot.ships.find(s => s.playerIndex === 1);
+                const p2 = snapshot.ships.find(s => s.playerIndex === 2);
+
+                if (p1 && p1.score >= 5) {
+                    finalMessage = `Player 1 (Green, ${player1Type}) wins the match with ${p1.score} points!`;
+                } else if (p2 && p2.score >= 5) {
+                    finalMessage = `Player 2 (Red, ${player2Type}) wins the match with ${p2.score} points!`;
                 }
 
                 showMessageBox('win/loss', finalMessage);
@@ -453,11 +389,22 @@
                 const gameContainer = document.getElementById('gameContainer');
                 canvas.width = gameContainer.clientWidth;
                 canvas.height = gameContainer.clientHeight;
-                planet.x = canvas.width / 2;
-                planet.y = canvas.height / 2;
-                
+
+                if (!match) {
+                    match = createMatch({ canvas, ctx, document });
+                } else {
+                    resizeMatch(match.world, match, { width: canvas.width, height: canvas.height });
+                }
+
                 resetGame();
-                draw();
+
+                // Render a single frame for the start screen.
+                stepWorld(
+                    match.world,
+                    { keys: {}, justPressed: new Set() },
+                    { dtMs: 0, planetId: match.planetId }
+                );
+                updateUi(document, getUiSnapshot(match.world));
             }
 
             function showMessageBox(type, message) {
@@ -480,12 +427,19 @@
                 isGameRunning = false;
                 isGamePaused = false;
                 cancelAnimationFrame(animationFrameId);
-                player1Ship.score = 0;
-                player2Ship.score = 0;
                 player1Ready = false;
                 player2Ready = false;
                 isPlayer1Bot = false;
                 isPlayer2Bot = false;
+
+                resetGame();
+                stepWorld(
+                    match.world,
+                    { keys: {}, justPressed: new Set() },
+                    { dtMs: 0, planetId: match.planetId }
+                );
+                updateUi(document, getUiSnapshot(match.world));
+
                 showMessageBox('start', "Welcome to Gravity Duel! Click \"Ready\" to begin.");
             }
             
@@ -503,6 +457,7 @@
 
             function startGame() {
                 keys = {}; 
+                justPressed = new Set();
 
                 messageBox.style.display = 'none';
                 isGameRunning = true;
@@ -510,78 +465,31 @@
                 gameLoop();
             }
 
-            function draw() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                ctx.fillStyle = planet.color;
-                ctx.shadowColor = planet.color;
-                ctx.shadowBlur = 30;
-                ctx.beginPath();
-                ctx.arc(planet.x, planet.y, planet.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.shadowBlur = 0;
-
-                player1Ship.drawShip();
-                player2Ship.drawShip();
-
-                scoreP1.textContent = player1Ship.score;
-                scoreP2.textContent = player2Ship.score;
-                player1Ship.updateFuelDisplay(fuelDisplayP1);
-                player2Ship.updateFuelDisplay(fuelDisplayP2);
-                player1Ship.updateAmmoContainer('missile-icons-p1');
-                player2Ship.updateAmmoContainer('missile-icons-p2');
-
-                explosions.forEach(drawExplosion);
-            }
-
             function gameLoop() {
                 if (!isGameRunning || isGamePaused) return;
 
-                if (player1Ship.fuel <= 0 && player2Ship.fuel <= 0) {
-                    if (noFuelTimer === null) {
-                        noFuelTimer = Date.now();
-                    } else if (Date.now() - noFuelTimer > NO_FUEL_TIMEOUT) {
-                        player1Ship.destroyed = true;
-                        player2Ship.destroyed = true;
-                        createExplosion(player1Ship.x, player1Ship.y, player1Ship.color);
-                        createExplosion(player2Ship.x, player2Ship.y, player2Ship.color);
-                        player1Ship.resetInitialPosition();
-                        player2Ship.resetInitialPosition();
-                        noFuelTimer = null;
-                    }
-                } else {
-                    noFuelTimer = null;
+                const now = performance.now();
+                if (lastFrameMs === null) lastFrameMs = now;
+                const dtMs = Math.min(50, now - lastFrameMs);
+                lastFrameMs = now;
+
+                setBotEnabled(match.world, match.ship1Id, isPlayer1Bot);
+                setBotEnabled(match.world, match.ship2Id, isPlayer2Bot);
+
+                const result = stepWorld(
+                    match.world,
+                    { keys, justPressed },
+                    { dtMs, planetId: match.planetId }
+                );
+                justPressed.clear();
+
+                updateUi(document, getUiSnapshot(match.world));
+
+                if (result.winnerShipId) {
+                    endGame();
+                    return;
                 }
 
-                const unset = [];
-                // Player 1 Logic
-                if (!isPlayer1Bot) {
-                    unset.push(...player1Input.update(keys));
-                } else {
-                    basicBot(player1Ship, player2Ship);
-                }
-
-                // Player 2 Logic
-                if (!isPlayer2Bot) {
-                    unset.push(...player2Input.update(keys));
-                } else {
-                    basicBot(player2Ship, player1Ship);
-                }
-                
-                if (keys['y']) {
-                    pauseGame();
-                    unset.push('y');
-                }
-                
-                unset.forEach((item) => keys[item] = false);
-
-                player1Ship.updateShip(planet, createExplosion, player2Ship);
-                player2Ship.updateShip(planet, createExplosion, player1Ship);
-                player1Ship.isCollidingShip(player2Ship, createExplosion);
-                checkWinCondition();
-
-                updateExplosions();
-                draw();
                 animationFrameId = requestAnimationFrame(gameLoop);
             }
 
