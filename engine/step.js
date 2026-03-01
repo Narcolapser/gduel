@@ -34,6 +34,16 @@ function shipIds(world) {
   return ids;
 }
 
+function isRespawning(world, shipId) {
+  return world.stores.respawnAtMs.has(shipId);
+}
+
+function scheduleRespawnIfNeeded(world, shipId, nowMs) {
+  if (world.stores.respawnAtMs.has(shipId)) return false;
+  world.stores.respawnAtMs.set(shipId, nowMs + SHIP.respawnDelayMs);
+  return true;
+}
+
 function missileIds(world) {
   const ids = [];
   for (const [id] of world.stores.missile) ids.push(id);
@@ -42,6 +52,8 @@ function missileIds(world) {
 
 function applyPlayerAndBotInput(world, keys, justPressed, dtFactor) {
   for (const shipId of shipIds(world)) {
+    if (isRespawning(world, shipId)) continue;
+
     const ship = world.stores.ship.get(shipId);
     const input = world.stores.playerInput.get(shipId);
     const isBot = world.stores.bot.get(shipId)?.enabled ?? false;
@@ -83,6 +95,8 @@ function botSystem(world, dtFactor) {
   ];
 
   for (const [botId, targetId] of pairs) {
+    if (isRespawning(world, botId) || isRespawning(world, targetId)) continue;
+
     const bot = world.stores.ship.get(botId);
     const botEnabled = world.stores.bot.get(botId)?.enabled ?? false;
     if (!botEnabled) continue;
@@ -135,6 +149,12 @@ function botSystem(world, dtFactor) {
 
 function fireSystem(world) {
   for (const shipId of shipIds(world)) {
+    if (isRespawning(world, shipId)) {
+      const ship = world.stores.ship.get(shipId);
+      if (ship) ship._wantsFire = false;
+      continue;
+    }
+
     const ship = world.stores.ship.get(shipId);
     if (!ship._wantsFire) continue;
     ship._wantsFire = false;
@@ -149,6 +169,9 @@ function gravitySystem(world, dtFactor) {
   const wells = getWells(world);
 
   for (const id of world.entities) {
+    // Ships scheduled to respawn are removed from simulation immediately.
+    if (world.stores.ship.has(id) && isRespawning(world, id)) continue;
+
     const t = world.stores.transform.get(id);
     const v = world.stores.velocity.get(id);
     if (!t || !v) continue;
@@ -169,6 +192,9 @@ function gravitySystem(world, dtFactor) {
 
 function movementSystem(world, dtFactor) {
   for (const id of world.entities) {
+    // Ships scheduled to respawn are removed from simulation immediately.
+    if (world.stores.ship.has(id) && isRespawning(world, id)) continue;
+
     const t = world.stores.transform.get(id);
     const v = world.stores.velocity.get(id);
     if (!t || !v) continue;
@@ -185,6 +211,8 @@ function boundarySystems(world, dtFactor) {
 
   // Ship drag back toward center.
   for (const shipId of shipIds(world)) {
+    if (isRespawning(world, shipId)) continue;
+
     const t = world.stores.transform.get(shipId);
     const v = world.stores.velocity.get(shipId);
 
@@ -220,7 +248,7 @@ function lifetimeSystem(world) {
 }
 
 function collisionSystem(world) {
-  const shipList = shipIds(world);
+  const shipList = shipIds(world).filter((id) => !isRespawning(world, id));
   const missileList = missileIds(world);
 
   // Ship-well and missile-well collisions (supports multiple wells).
@@ -345,6 +373,8 @@ function rulesSystem(world, planetId) {
   for (const event of world.events) {
     if (event.type === 'shipHitGravityWell') {
       const shipId = event.shipId;
+      if (isRespawning(world, shipId)) continue;
+
       const ship = world.stores.ship.get(shipId);
       const t = world.stores.transform.get(shipId);
 
@@ -357,19 +387,37 @@ function rulesSystem(world, planetId) {
       ship.wellContact = true;
 
       // Destroy + respawn.
-      markExplosion(world, t.x, t.y, ship.color);
-      world.stores.respawnAtMs.set(shipId, nowMs + SHIP.respawnDelayMs);
+      if (scheduleRespawnIfNeeded(world, shipId, nowMs)) {
+        markExplosion(world, t.x, t.y, ship.color);
+        // Freeze immediately so it stops participating in the sim.
+        const v = world.stores.velocity.get(shipId);
+        if (v) {
+          v.x = 0;
+          v.y = 0;
+        }
+      }
     }
 
     if (event.type === 'missileHitShip') {
       const { missileId, shipId, ownerShipId } = event;
+      if (isRespawning(world, shipId)) {
+        world.dead.add(missileId);
+        continue;
+      }
+
       const ship = world.stores.ship.get(shipId);
       const shipT = world.stores.transform.get(shipId);
       const missile = world.stores.missile.get(missileId);
 
       world.dead.add(missileId);
-      markExplosion(world, shipT.x, shipT.y, ship.color);
-      world.stores.respawnAtMs.set(shipId, nowMs + SHIP.respawnDelayMs);
+      if (scheduleRespawnIfNeeded(world, shipId, nowMs)) {
+        markExplosion(world, shipT.x, shipT.y, ship.color);
+        const v = world.stores.velocity.get(shipId);
+        if (v) {
+          v.x = 0;
+          v.y = 0;
+        }
+      }
 
       if (ownerShipId && world.stores.score.has(ownerShipId)) {
         world.stores.score.get(ownerShipId).value++;
@@ -383,6 +431,8 @@ function rulesSystem(world, planetId) {
 
     if (event.type === 'shipRammed') {
       const { a, b } = event;
+      if (isRespawning(world, a) || isRespawning(world, b)) continue;
+
       const aT = world.stores.transform.get(a);
       const bT = world.stores.transform.get(b);
       const aV = world.stores.velocity.get(a);
@@ -394,18 +444,42 @@ function rulesSystem(world, planetId) {
       const bSpeed = Math.sqrt(bV.x ** 2 + bV.y ** 2);
 
       if (aSpeed > bSpeed) {
-        markExplosion(world, bT.x, bT.y, bShip.color);
+        if (scheduleRespawnIfNeeded(world, b, nowMs)) {
+          markExplosion(world, bT.x, bT.y, bShip.color);
+          const v = world.stores.velocity.get(b);
+          if (v) {
+            v.x = 0;
+            v.y = 0;
+          }
+        }
         world.stores.score.get(a).value++;
-        world.stores.respawnAtMs.set(b, nowMs + SHIP.respawnDelayMs);
       } else if (bSpeed > aSpeed) {
-        markExplosion(world, aT.x, aT.y, aShip.color);
+        if (scheduleRespawnIfNeeded(world, a, nowMs)) {
+          markExplosion(world, aT.x, aT.y, aShip.color);
+          const v = world.stores.velocity.get(a);
+          if (v) {
+            v.x = 0;
+            v.y = 0;
+          }
+        }
         world.stores.score.get(b).value++;
-        world.stores.respawnAtMs.set(a, nowMs + SHIP.respawnDelayMs);
       } else {
-        markExplosion(world, aT.x, aT.y, aShip.color);
-        markExplosion(world, bT.x, bT.y, bShip.color);
-        world.stores.respawnAtMs.set(a, nowMs + SHIP.respawnDelayMs);
-        world.stores.respawnAtMs.set(b, nowMs + SHIP.respawnDelayMs);
+        if (scheduleRespawnIfNeeded(world, a, nowMs)) {
+          markExplosion(world, aT.x, aT.y, aShip.color);
+          const v = world.stores.velocity.get(a);
+          if (v) {
+            v.x = 0;
+            v.y = 0;
+          }
+        }
+        if (scheduleRespawnIfNeeded(world, b, nowMs)) {
+          markExplosion(world, bT.x, bT.y, bShip.color);
+          const v = world.stores.velocity.get(b);
+          if (v) {
+            v.x = 0;
+            v.y = 0;
+          }
+        }
       }
     }
 
