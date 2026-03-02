@@ -10,6 +10,7 @@ from aiohttp import WSMsgType, web
 
 TICK_MS = 1000 / 60
 TICK_S = TICK_MS / 1000
+MAX_PLAYERS = 8
 
 
 def _json_dumps(obj: Any) -> str:
@@ -44,8 +45,7 @@ def normalize_key(k: Any) -> str:
 	return k.lower().strip()
 
 
-P1_KEYS = {"w", "a", "d", "s"}
-P2_KEYS = {"arrowup", "arrowleft", "arrowright", "arrowdown"}
+VALID_ACTIONS = {"thrust", "left", "right", "fire"}
 
 
 @dataclass
@@ -53,49 +53,48 @@ class PlayerConn:
 	ws: web.WebSocketResponse
 	player_index: int
 	ready: bool = False
-	keys: dict[str, bool] = field(default_factory=dict)
-	pending_just_pressed: set[str] = field(default_factory=set)
+	actions: dict[str, bool] = field(default_factory=dict)
+	pending_just_pressed_actions: set[str] = field(default_factory=set)
 
-	def allowed_keys(self) -> set[str]:
-		return P1_KEYS if self.player_index == 1 else P2_KEYS
-
-	def set_key(self, key: str, down: bool) -> None:
-		allowed = self.allowed_keys()
-		if key not in allowed:
+	def set_action(self, action: str, down: bool) -> None:
+		if action not in VALID_ACTIONS:
 			return
-		prev = bool(self.keys.get(key, False))
+		prev = bool(self.actions.get(action, False))
 		if down and not prev:
-			self.pending_just_pressed.add(key)
-		self.keys[key] = bool(down)
+			self.pending_just_pressed_actions.add(action)
+		self.actions[action] = bool(down)
 
-	def drain_just_pressed(self) -> list[str]:
-		out = list(self.pending_just_pressed)
-		self.pending_just_pressed.clear()
+	def drain_just_pressed_actions(self) -> list[str]:
+		out = list(self.pending_just_pressed_actions)
+		self.pending_just_pressed_actions.clear()
 		return out
 
 
 @dataclass
 class Room:
-	p1: PlayerConn | None = None
-	p2: PlayerConn | None = None
+	players_by_index: dict[int, PlayerConn] = field(default_factory=dict)
 	started: bool = False
 	tick_task: asyncio.Task | None = None
 	config: dict[str, Any] | None = None
 
 	def connected_count(self) -> int:
-		return int(self.p1 is not None) + int(self.p2 is not None)
+		return len(self.players_by_index)
 
 	def ready_count(self) -> int:
-		return int(bool(self.p1 and self.p1.ready)) + int(bool(self.p2 and self.p2.ready))
+		return sum(1 for p in self.players_by_index.values() if p.ready)
 
 	def both_connected(self) -> bool:
-		return self.p1 is not None and self.p2 is not None
+		return self.connected_count() >= 2
 
 	def both_ready(self) -> bool:
-		return bool(self.p1 and self.p2 and self.p1.ready and self.p2.ready)
+		# Start when >= 75% of connected users are ready.
+		n = self.connected_count()
+		if n < 2:
+			return False
+		return (self.ready_count() / n) >= 0.75
 
 	def players(self) -> list[PlayerConn]:
-		return [p for p in [self.p1, self.p2] if p is not None]
+		return [self.players_by_index[i] for i in sorted(self.players_by_index.keys())]
 
 	async def broadcast(self, obj: Any) -> None:
 		for p in self.players():
@@ -110,10 +109,9 @@ class Room:
 			{
 				"type": "room",
 				"connected": self.connected_count(),
-				"ready": {
-					"1": bool(self.p1 and self.p1.ready),
-					"2": bool(self.p2 and self.p2.ready),
-				},
+				"readyCount": self.ready_count(),
+				"readyThreshold": 0.75,
+				"players": [{"playerIndex": p.player_index, "ready": p.ready} for p in self.players()],
 				"started": self.started,
 			}
 		)
@@ -144,6 +142,7 @@ class Room:
 			return
 
 		self.started = True
+		player_order = [p.player_index for p in self.players()]
 		await self.broadcast(
 			{
 				"type": "start",
@@ -157,6 +156,7 @@ class Room:
 					"gameSpeed": 1.0,
 				},
 				"tickMs": TICK_MS,
+				"playerOrder": player_order,
 			}
 		)
 
@@ -177,20 +177,27 @@ class Room:
 	async def tick_loop(self) -> None:
 		loop = asyncio.get_running_loop()
 		next_t = loop.time()
-		while self.started and self.both_connected():
+		while self.started and self.connected_count() >= 1:
 			next_t += TICK_S
 
-			# Merge keys for lockstep simulation.
+			# Build pseudo-key state the existing engine can consume.
+			# Each ship listens to: p{idx}:thrust/left/right/fire
 			keys: dict[str, bool] = {}
 			just_pressed: set[str] = set()
-			if self.p1 is not None:
-				keys.update(self.p1.keys)
-				just_pressed.update(self.p1.drain_just_pressed())
-			if self.p2 is not None:
-				keys.update(self.p2.keys)
-				just_pressed.update(self.p2.drain_just_pressed())
+			for p in self.players_by_index.values():
+				prefix = f"p{p.player_index}:"
+				for action, down in p.actions.items():
+					keys[prefix + action] = bool(down)
+				for action in p.drain_just_pressed_actions():
+					if action == "fire":
+						just_pressed.add(prefix + action)
 
-			msg = {"type": "tick", "dtMs": TICK_MS, "keys": keys, "justPressed": sorted(just_pressed)}
+			msg = {
+				"type": "tick",
+				"dtMs": TICK_MS,
+				"keys": keys,
+				"justPressed": sorted(just_pressed),
+			}
 			await self.broadcast(msg)
 
 			# Sleep with drift correction.
@@ -206,17 +213,15 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 	ws = web.WebSocketResponse(heartbeat=20)
 	await ws.prepare(request)
 
-	player: PlayerConn | None = None
-	if room.p1 is None:
-		player = PlayerConn(ws=ws, player_index=1)
-		room.p1 = player
-	elif room.p2 is None:
-		player = PlayerConn(ws=ws, player_index=2)
-		room.p2 = player
-	else:
-		await ws_send_json(ws, {"type": "full", "message": "Room is full (2 players)."})
+	if len(room.players_by_index) >= MAX_PLAYERS:
+		await ws_send_json(ws, {"type": "full", "message": f"Room is full ({MAX_PLAYERS} players)."})
 		await ws.close()
 		return ws
+
+	# Assign the lowest free player index.
+	player_index = next(i for i in range(1, MAX_PLAYERS + 1) if i not in room.players_by_index)
+	player = PlayerConn(ws=ws, player_index=player_index)
+	room.players_by_index[player_index] = player
 
 	await ws_send_json(ws, {"type": "assigned", "playerIndex": player.player_index})
 	await room.broadcast_status()
@@ -246,17 +251,36 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 					await room.broadcast_status()
 
 				elif mtype == "input":
-					key = normalize_key(data.get("key"))
+					action = normalize_key(data.get("action"))
 					down = bool(data.get("down"))
-					player.set_key(key, down)
+					player.set_action(action, down)
+
+				elif mtype == "config":
+					# Only Player 1 can change settings; only before the match starts.
+					if player.player_index != 1:
+						continue
+					if room.started:
+						continue
+					room.config = room.sanitize_config(data.get("config"))
+
+					# Clear readiness for everyone except player 1.
+					for p in room.players_by_index.values():
+						if p.player_index == 1:
+							continue
+						p.ready = False
+						p.actions.clear()
+						p.pending_just_pressed_actions.clear()
+
+					await room.broadcast({"type": "config", "config": room.config})
+					await room.broadcast_status()
 
 				elif mtype == "end":
 					# Either client can end the current match.
 					await room.stop()
 					for p in room.players():
 						p.ready = False
-						p.keys.clear()
-						p.pending_just_pressed.clear()
+						p.actions.clear()
+						p.pending_just_pressed_actions.clear()
 					await room.broadcast_status()
 
 				elif mtype == "ping":
@@ -266,10 +290,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 				break
 	finally:
 		# Cleanup.
-		if room.p1 is player:
-			room.p1 = None
-		if room.p2 is player:
-			room.p2 = None
+		room.players_by_index.pop(player.player_index, None)
 		await room.stop()
 		await room.broadcast_status()
 

@@ -498,6 +498,8 @@
             let myPlayerIndex = null;
             let onlineReadySent = false;
             let localInputDown = {};
+            let onlineStarted = false;
+            let onlinePlayerOrder = null;
 
             let player1Ready = false;
             let player2Ready = false;
@@ -537,6 +539,18 @@
                 ws.send(JSON.stringify(obj));
             }
 
+            function onlineAllowedKeys() {
+                return new Set(['w', 'a', 'd', 's']);
+            }
+
+            function actionForKey(k) {
+                if (k === 'w') return 'thrust';
+                if (k === 'a') return 'left';
+                if (k === 'd') return 'right';
+                if (k === 's') return 'fire';
+                return null;
+            }
+
             function getOnlineConfigSnapshot() {
                 return {
                     mapId,
@@ -546,6 +560,26 @@
                     missilesDieWithShip,
                     gameSpeed,
                 };
+            }
+
+            function isPlayerOne() {
+                return myPlayerIndex === 1;
+            }
+
+            function setOnlineControlsEnabled() {
+                // Only player 1 can change settings before the match starts.
+                const allow = onlineMode && isPlayerOne() && !onlineStarted;
+                if (gameSpeedSlider) gameSpeedSlider.disabled = !allow;
+                if (borderModeSelect) borderModeSelect.disabled = !allow;
+                if (maxShotsInput) maxShotsInput.disabled = !allow;
+                if (objectiveScoreInput) objectiveScoreInput.disabled = !allow;
+                if (missilesDieWithShipCheckbox) missilesDieWithShipCheckbox.disabled = !allow;
+                if (mapSelect) mapSelect.disabled = !allow;
+            }
+
+            function applyOnlineUiVisibility() {
+                const p2 = document.getElementById('player2-ui');
+                if (p2) p2.style.display = onlineMode ? 'none' : '';
             }
 
             function clamp(n, min, max) {
@@ -630,6 +664,14 @@
 
             function applyMaxShotsToMatch() {
                 if (!match) return;
+                if (Array.isArray(match.shipIds) && match.shipIds.length > 0) {
+                    for (const sid of match.shipIds) {
+                        const ship = match.world.stores.ship.get(sid);
+                        if (ship) ship.maxMissiles = maxShots;
+                    }
+                    return;
+                }
+
                 const ship1 = match.world.stores.ship.get(match.ship1Id);
                 const ship2 = match.world.stores.ship.get(match.ship2Id);
                 if (ship1) ship1.maxMissiles = maxShots;
@@ -737,7 +779,11 @@
                 maxShotsInput.addEventListener('input', (e) => {
                     setMaxShots(e.target.value);
                     applyMaxShotsToMatch();
-                    if (match) updateUi(document, getUiSnapshot(match.world));
+                    if (match) {
+                        const snap = getUiSnapshot(match.world);
+                        if (onlineMode && myPlayerIndex != null) updateUi(document, snap, { activePlayerIndex: myPlayerIndex });
+                        else updateUi(document, snap);
+                    }
                 });
             }
 
@@ -758,15 +804,16 @@
 
                 if (onlineMode) {
                     if (!isGameRunning || isGamePaused) return;
-                    const allowed = myPlayerIndex === 1
-                        ? new Set(['w', 'a', 'd', 's'])
-                        : new Set(['arrowup', 'arrowleft', 'arrowright', 'arrowdown']);
+                    if (!myPlayerIndex) return;
+                    const allowed = onlineAllowedKeys();
                     if (!allowed.has(k)) return;
+                    const action = actionForKey(k);
+                    if (!action) return;
                     if (e.repeat) return;
                     if (localInputDown[k]) return;
                     localInputDown[k] = true;
                     e.preventDefault();
-                    wsSend({ type: 'input', key: k, down: true });
+                    wsSend({ type: 'input', action, down: true });
                     return;
                 }
 
@@ -794,14 +841,15 @@
 
                 if (onlineMode) {
                     if (!isGameRunning || isGamePaused) return;
-                    const allowed = myPlayerIndex === 1
-                        ? new Set(['w', 'a', 'd', 's'])
-                        : new Set(['arrowup', 'arrowleft', 'arrowright', 'arrowdown']);
+                    if (!myPlayerIndex) return;
+                    const allowed = onlineAllowedKeys();
                     if (!allowed.has(k)) return;
+                    const action = actionForKey(k);
+                    if (!action) return;
                     if (!localInputDown[k]) return;
                     localInputDown[k] = false;
                     e.preventDefault();
-                    wsSend({ type: 'input', key: k, down: false });
+                    wsSend({ type: 'input', action, down: false });
                     return;
                 }
 
@@ -816,7 +864,19 @@
             }
 
             function recreateMatch() {
-                match = createMatch({ canvas, ctx, document, maxMissiles: maxShots, mapId });
+                if (onlineMode && Array.isArray(onlinePlayerOrder) && onlinePlayerOrder.length > 0) {
+                    match = createMatch({
+                        canvas,
+                        ctx,
+                        document,
+                        maxMissiles: maxShots,
+                        mapId,
+                        playerOrder: onlinePlayerOrder,
+                        onlineControls: true,
+                    });
+                } else {
+                    match = createMatch({ canvas, ctx, document, maxMissiles: maxShots, mapId });
+                }
                 applyMaxShotsToMatch();
                 resetGame();
 
@@ -832,7 +892,9 @@
                         missilesDieWithShip,
                     }
                 );
-                updateUi(document, getUiSnapshot(match.world));
+                const snap = getUiSnapshot(match.world);
+                if (onlineMode && myPlayerIndex != null) updateUi(document, snap, { activePlayerIndex: myPlayerIndex });
+                else updateUi(document, snap);
             }
 
             function endGame() {
@@ -844,13 +906,22 @@
                 const player2Type = isPlayer2Bot ? 'Bot' : 'Human';
 
                 const snapshot = getUiSnapshot(match.world);
-                const p1 = snapshot.ships.find(s => s.playerIndex === 1);
-                const p2 = snapshot.ships.find(s => s.playerIndex === 2);
+                const winner = snapshot.ships.find(s => s.score >= objectiveScore);
 
-                if (p1 && p1.score >= objectiveScore) {
-                    finalMessage = `Player 1 (Green, ${player1Type}) wins the match with ${p1.score} points!`;
-                } else if (p2 && p2.score >= objectiveScore) {
-                    finalMessage = `Player 2 (Red, ${player2Type}) wins the match with ${p2.score} points!`;
+                if (winner) {
+                    if (onlineMode && myPlayerIndex != null) {
+                        const label = winner.playerIndex === myPlayerIndex ? 'You' : `Player ${winner.playerIndex}`;
+                        finalMessage = `${label} win the match with ${winner.score} points!`;
+                    } else {
+                        // Local 2p fallback text.
+                        if (winner.playerIndex === 1) {
+                            finalMessage = `Player 1 (Green, ${player1Type}) wins the match with ${winner.score} points!`;
+                        } else if (winner.playerIndex === 2) {
+                            finalMessage = `Player 2 (Red, ${player2Type}) wins the match with ${winner.score} points!`;
+                        } else {
+                            finalMessage = `Player ${winner.playerIndex} wins the match with ${winner.score} points!`;
+                        }
+                    }
                 }
 
                 showMessageBox('win/loss', finalMessage);
@@ -862,7 +933,19 @@
                 canvas.height = gameContainer.clientHeight;
 
                 if (!match) {
-                    match = createMatch({ canvas, ctx, document, maxMissiles: maxShots, mapId });
+                    if (onlineMode && Array.isArray(onlinePlayerOrder) && onlinePlayerOrder.length > 0) {
+                        match = createMatch({
+                            canvas,
+                            ctx,
+                            document,
+                            maxMissiles: maxShots,
+                            mapId,
+                            playerOrder: onlinePlayerOrder,
+                            onlineControls: true,
+                        });
+                    } else {
+                        match = createMatch({ canvas, ctx, document, maxMissiles: maxShots, mapId });
+                    }
                 } else {
                     resizeMatch(match.world, match, { width: canvas.width, height: canvas.height });
                 }
@@ -883,7 +966,11 @@
                         missilesDieWithShip,
                     }
                 );
-                updateUi(document, getUiSnapshot(match.world));
+                {
+                    const snap = getUiSnapshot(match.world);
+                    if (onlineMode && myPlayerIndex != null) updateUi(document, snap, { activePlayerIndex: myPlayerIndex });
+                    else updateUi(document, snap);
+                }
             }
 
             function showMessageBox(type, message) {
@@ -926,7 +1013,11 @@
                         missilesDieWithShip,
                     }
                 );
-                updateUi(document, getUiSnapshot(match.world));
+                {
+                    const snap = getUiSnapshot(match.world);
+                    if (onlineMode && myPlayerIndex != null) updateUi(document, snap, { activePlayerIndex: myPlayerIndex });
+                    else updateUi(document, snap);
+                }
 
                 showMessageBox('start', "Welcome to Gravity Duel! Click \"Ready\" to begin.");
             }
@@ -962,6 +1053,9 @@
                 isGameRunning = true;
                 isGamePaused = false;
                 resetGame();
+
+                onlineStarted = true;
+                setOnlineControlsEnabled();
 
                 // Online mode steps on server tick messages.
             }
@@ -1068,13 +1162,7 @@
                 if (cfg.missilesDieWithShip != null) setMissilesDieWithShip(cfg.missilesDieWithShip);
                 if (cfg.gameSpeed != null) setGameSpeed(cfg.gameSpeed);
 
-                // Lock settings during online play.
-                if (gameSpeedSlider) gameSpeedSlider.disabled = true;
-                if (borderModeSelect) borderModeSelect.disabled = true;
-                if (maxShotsInput) maxShotsInput.disabled = true;
-                if (objectiveScoreInput) objectiveScoreInput.disabled = true;
-                if (missilesDieWithShipCheckbox) missilesDieWithShipCheckbox.disabled = true;
-                if (mapSelect) mapSelect.disabled = true;
+                setOnlineControlsEnabled();
             }
 
             function connectOnline() {
@@ -1088,9 +1176,13 @@
 
                 ws.addEventListener('open', () => {
                     onlineMode = true;
+                    onlineStarted = false;
+                    onlinePlayerOrder = null;
                     setOnlineUiEnabled(true);
                     setOnlineStatus('Connected. Waiting for assignment…');
                     showMessageBox('start', 'Online: click "Ready" when you are set.');
+                    applyOnlineUiVisibility();
+                    setOnlineControlsEnabled();
                 });
 
                 ws.addEventListener('message', (ev) => {
@@ -1106,25 +1198,49 @@
                     if (data.type === 'assigned') {
                         myPlayerIndex = data.playerIndex;
                         setOnlineStatus(`Assigned Player ${myPlayerIndex}. Click Ready.`);
+                        setOnlineControlsEnabled();
                         return;
                     }
 
                     if (data.type === 'room') {
                         const connected = data.connected ?? 0;
-                        const r1 = data.ready?.['1'] ? 'ready' : 'not ready';
-                        const r2 = data.ready?.['2'] ? 'ready' : 'not ready';
-                        if (!data.started) {
-                            onlineReadySent = false;
-                            if (readyOnlineButton) readyOnlineButton.disabled = false;
+                        const readyCount = data.readyCount ?? 0;
+                        const need = Math.ceil(connected * 0.75);
+
+                        let myReady = false;
+                        if (Array.isArray(data.players) && myPlayerIndex != null) {
+                            const me = data.players.find(p => p && p.playerIndex === myPlayerIndex);
+                            myReady = Boolean(me && me.ready);
                         }
-                        if (!onlineReadySent) setOnlineStatus(`Players: ${connected}/2 • P1 ${r1} • P2 ${r2}`);
+
+                        onlineReadySent = myReady;
+                        if (readyOnlineButton) readyOnlineButton.disabled = myReady;
+
+                        if (!data.started) {
+                            onlineStarted = false;
+                            onlinePlayerOrder = null;
+                            setOnlineControlsEnabled();
+                        }
+
+                        if (onlineReadySent) setOnlineStatus(`Ready sent. Waiting… (${readyCount}/${connected}, need ${need})`);
+                        else setOnlineStatus(`Ready ${readyCount}/${connected} (need ${need})`);
+                        return;
+                    }
+
+                    if (data.type === 'config') {
+                        applyOnlineConfig(data.config);
+                        if (!onlineStarted) {
+                            recreateMatch();
+                        }
                         return;
                     }
 
                     if (data.type === 'start') {
+                        onlineStarted = true;
+                        onlinePlayerOrder = Array.isArray(data.playerOrder) ? data.playerOrder : null;
                         applyOnlineConfig(data.config);
 
-                        // Online mode is always 2 humans in this POC.
+                        // Online mode: all connected users are humans.
                         isPlayer1Bot = false;
                         isPlayer2Bot = false;
                         player1Ready = true;
@@ -1143,8 +1259,12 @@
                         const dtMs = (Number(data.dtMs) || 0) * gameSpeed;
                         match.world.resources.gameTimeMs += dtMs;
 
-                        setBotEnabled(match.world, match.ship1Id, false);
-                        setBotEnabled(match.world, match.ship2Id, false);
+                        if (Array.isArray(match.shipIds)) {
+                            for (const sid of match.shipIds) setBotEnabled(match.world, sid, false);
+                        } else {
+                            setBotEnabled(match.world, match.ship1Id, false);
+                            setBotEnabled(match.world, match.ship2Id, false);
+                        }
 
                         const tickKeys = data.keys && typeof data.keys === 'object' ? data.keys : {};
                         const jp = Array.isArray(data.justPressed) ? data.justPressed : [];
@@ -1161,7 +1281,7 @@
                             }
                         );
 
-                        updateUi(document, getUiSnapshot(match.world));
+                        updateUi(document, getUiSnapshot(match.world), { activePlayerIndex: myPlayerIndex });
 
                         if (result.winnerShipId) {
                             wsSend({ type: 'end' });
@@ -1172,7 +1292,10 @@
 
                     if (data.type === 'full') {
                         onlineMode = false;
+                        onlineStarted = false;
                         setOnlineUiEnabled(false);
+                        setOnlineControlsEnabled();
+                        applyOnlineUiVisibility();
                         showMessageBox('start', 'Online room is full. Use local play for now.');
                         return;
                     }
@@ -1181,7 +1304,11 @@
                 ws.addEventListener('close', () => {
                     if (!onlineMode) return;
                     onlineMode = false;
+                    onlineStarted = false;
+                    onlinePlayerOrder = null;
                     setOnlineUiEnabled(false);
+                    setOnlineControlsEnabled();
+                    applyOnlineUiVisibility();
                     showMessageBox('start', 'Disconnected from online server.');
                 });
             }
@@ -1190,6 +1317,20 @@
             setOnlineUiEnabled(false);
             setOnlineStatus('');
             connectOnline();
+
+            function maybeSendOnlineConfig() {
+                if (!onlineMode) return;
+                if (!isPlayerOne()) return;
+                if (onlineStarted) return;
+                wsSend({ type: 'config', config: getOnlineConfigSnapshot() });
+            }
+
+            if (gameSpeedSlider) gameSpeedSlider.addEventListener('change', maybeSendOnlineConfig);
+            if (borderModeSelect) borderModeSelect.addEventListener('change', maybeSendOnlineConfig);
+            if (mapSelect) mapSelect.addEventListener('change', maybeSendOnlineConfig);
+            if (maxShotsInput) maxShotsInput.addEventListener('change', maybeSendOnlineConfig);
+            if (objectiveScoreInput) objectiveScoreInput.addEventListener('change', maybeSendOnlineConfig);
+            if (missilesDieWithShipCheckbox) missilesDieWithShipCheckbox.addEventListener('change', maybeSendOnlineConfig);
 
             showMessageBox('start', 'Click "Ready" to Begin');
         });

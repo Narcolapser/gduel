@@ -3,7 +3,36 @@ import { createWorld } from './world.js';
 import { createMap } from './maps.js';
 import { resetScores, respawnShip, spawnShip } from './spawn.js';
 
-export function createMatch({ canvas, ctx, document, maxMissiles = SHIP.maxMissiles, mapId = 'classic' }) {
+const DEFAULT_PLAYER_COLORS = [
+  '#00ff00',
+  '#ff0000',
+  '#00b7ff',
+  '#ffcc00',
+  '#ff00ff',
+  '#00ffff',
+  '#ffffff',
+  '#ff8000',
+];
+
+function pseudoInputKeys(playerIndex) {
+  const p = `p${playerIndex}:`;
+  return {
+    thrust: p + 'thrust',
+    left: p + 'left',
+    right: p + 'right',
+    fire: p + 'fire',
+  };
+}
+
+export function createMatch({
+  canvas,
+  ctx,
+  document,
+  maxMissiles = SHIP.maxMissiles,
+  mapId = 'classic',
+  playerOrder = null,
+  onlineControls = false,
+}) {
   const world = createWorld({ canvas, ctx, document });
 
   const map = createMap(world, { mapId, width: canvas.width, height: canvas.height });
@@ -28,31 +57,48 @@ export function createMatch({ canvas, ctx, document, maxMissiles = SHIP.maxMissi
   const cx = anchorT?.x ?? canvas.width / 2;
   const cy = anchorT?.y ?? canvas.height / 2;
 
-  const ship1Id = spawnShip(world, {
-    playerIndex: 1,
-    color: '#00ff00',
-    x: cx - distance,
-    y: cy,
-    vx: 0,
-    vy: -circularVelocity,
-    angle: (Math.atan2(-circularVelocity, 0) + Math.PI * 2) % (Math.PI * 2),
-    inputKeys: { thrust: 'w', left: 'a', right: 'd', fire: 's' },
-    maxMissiles,
-  });
+  const order = Array.isArray(playerOrder) && playerOrder.length > 0 ? playerOrder.slice() : [1, 2];
+  const seatCount = order.length;
 
-  const ship2Id = spawnShip(world, {
-    playerIndex: 2,
-    color: '#ff0000',
-    x: cx + distance,
-    y: cy,
-    vx: 0,
-    vy: circularVelocity,
-    angle: (Math.atan2(circularVelocity, 0) + Math.PI * 2) % (Math.PI * 2),
-    inputKeys: { thrust: 'arrowup', left: 'arrowleft', right: 'arrowright', fire: 'arrowdown' },
-    maxMissiles,
-  });
+  const shipIds = [];
+  for (let seatIndex = 0; seatIndex < order.length; seatIndex++) {
+    const playerIndex = order[seatIndex];
+    const theta = Math.PI + (seatIndex * (Math.PI * 2)) / seatCount;
 
-  return { world, planetId, ship1Id, ship2Id, mapId: map.id };
+    const x = cx + distance * Math.cos(theta);
+    const y = cy + distance * Math.sin(theta);
+
+    const vx = circularVelocity * -Math.sin(theta);
+    const vy = circularVelocity * Math.cos(theta);
+    const angle = (Math.atan2(vy, vx) + Math.PI * 2) % (Math.PI * 2);
+
+    const inputKeys = onlineControls
+      ? pseudoInputKeys(playerIndex)
+      : playerIndex === 1
+        ? { thrust: 'w', left: 'a', right: 'd', fire: 's' }
+        : { thrust: 'arrowup', left: 'arrowleft', right: 'arrowright', fire: 'arrowdown' };
+
+    const shipId = spawnShip(world, {
+      playerIndex,
+      color: DEFAULT_PLAYER_COLORS[(playerIndex - 1) % DEFAULT_PLAYER_COLORS.length],
+      x,
+      y,
+      vx,
+      vy,
+      angle,
+      inputKeys,
+      seatIndex,
+      seatCount,
+      maxMissiles,
+    });
+    shipIds.push(shipId);
+  }
+
+  // Keep legacy shape for existing codepaths.
+  const ship1Id = shipIds[0] ?? null;
+  const ship2Id = shipIds[1] ?? null;
+
+  return { world, planetId, shipIds, ship1Id, ship2Id, mapId: map.id, playerOrder: order };
 }
 
 export function setBotEnabled(world, shipId, enabled) {
@@ -61,8 +107,12 @@ export function setBotEnabled(world, shipId, enabled) {
 
 export function resetMatch(world, { planetId, ship1Id, ship2Id }) {
   resetScores(world);
-  respawnShip(world, ship1Id, planetId, 0);
-  respawnShip(world, ship2Id, planetId, 0);
+  if (Array.isArray(arguments[1]?.shipIds) && arguments[1].shipIds.length > 0) {
+    for (const sid of arguments[1].shipIds) respawnShip(world, sid, planetId, 0);
+  } else {
+    respawnShip(world, ship1Id, planetId, 0);
+    respawnShip(world, ship2Id, planetId, 0);
+  }
 
   world.resources.gameTimeMs = 0;
   world.resources.explosions = [];

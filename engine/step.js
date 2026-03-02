@@ -673,32 +673,35 @@ function rulesSystem(world, planetId) {
 
 function noFuelSystem(world, planetId) {
   const ships = shipIds(world);
-  if (ships.length < 2) return;
-
-  const [s1, s2] = ships;
-  const f1 = world.stores.fuel.get(s1)?.value ?? 0;
-  const f2 = world.stores.fuel.get(s2)?.value ?? 0;
+  if (ships.length === 0) return;
 
   const nowMs = world.resources.now();
-  if (f1 <= 0 && f2 <= 0) {
+
+  // Consider only ships that are currently in simulation.
+  const activeShips = ships.filter((sid) => !world.stores.respawnAtMs.has(sid));
+  if (activeShips.length === 0) {
+    world.resources.noFuelStartMs = null;
+    return;
+  }
+
+  const allOut = activeShips.every((sid) => (world.stores.fuel.get(sid)?.value ?? 0) <= 0);
+
+  if (allOut) {
     if (world.resources.noFuelStartMs === null) world.resources.noFuelStartMs = nowMs;
 
     if (nowMs - world.resources.noFuelStartMs > NO_FUEL_TIMEOUT_MS) {
-      const t1 = world.stores.transform.get(s1);
-      const t2 = world.stores.transform.get(s2);
-      const c1 = world.stores.ship.get(s1).color;
-      const c2 = world.stores.ship.get(s2).color;
+      for (const sid of activeShips) {
+        const t = world.stores.transform.get(sid);
+        const c = world.stores.ship.get(sid)?.color;
+        if (t && c) markExplosion(world, t.x, t.y, c);
 
-      markExplosion(world, t1.x, t1.y, c1);
-      markExplosion(world, t2.x, t2.y, c2);
+        if (world.resources.missilesDieWithShip) {
+          killMissilesOwnedByShip(world, sid, { explode: true });
+        }
 
-      if (world.resources.missilesDieWithShip) {
-        killMissilesOwnedByShip(world, s1, { explode: true });
-        killMissilesOwnedByShip(world, s2, { explode: true });
+        world.stores.respawnAtMs.set(sid, nowMs + SHIP.respawnDelayMs);
       }
 
-      world.stores.respawnAtMs.set(s1, nowMs + SHIP.respawnDelayMs);
-      world.stores.respawnAtMs.set(s2, nowMs + SHIP.respawnDelayMs);
       world.resources.noFuelStartMs = null;
     }
   } else {
@@ -862,7 +865,6 @@ export function stepWorld(
   collisionSystem(world);
   noFuelSystem(world, planetId);
   rulesSystem(world, planetId);
-
   world.resources.explosions = updateExplosions(world.resources.explosions, dtFactor);
 
   cleanupDead(world);
@@ -872,6 +874,7 @@ export function stepWorld(
   return {
     winnerShipId: checkWin(world, winningScore),
   };
+
 }
 
 export function getUiSnapshot(world) {

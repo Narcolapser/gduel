@@ -46,7 +46,29 @@ function updateFuelDisplay(document, elementId, fuelSeconds) {
   }
 }
 
-export function updateUi(document, snapshot) {
+export function updateUi(document, snapshot, { activePlayerIndex = null } = {}) {
+  if (activePlayerIndex != null) {
+    const active = snapshot.ships.find((s) => s.playerIndex === activePlayerIndex);
+    if (!active) return;
+
+    const scoreEl = document.getElementById('score-p1');
+    if (scoreEl) scoreEl.textContent = String(active.score);
+    updateFuelDisplay(document, 'fuel-display-p1', active.fuel);
+    updateAmmoDisplay(
+      document,
+      'missile-icons-p1',
+      active.maxMissiles - active.activeMissiles,
+      active.maxMissiles,
+    );
+
+    // Clear the second panel if it exists.
+    const scoreEl2 = document.getElementById('score-p2');
+    if (scoreEl2) scoreEl2.textContent = '';
+    updateFuelDisplay(document, 'fuel-display-p2', 0);
+    updateAmmoDisplay(document, 'missile-icons-p2', 0, 0);
+    return;
+  }
+
   for (const ship of snapshot.ships) {
     if (ship.playerIndex === 1) {
       const scoreEl = document.getElementById('score-p1');

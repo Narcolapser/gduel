@@ -38,6 +38,8 @@ export function spawnShip(world, {
   vy,
   angle,
   inputKeys,
+  seatIndex = null,
+  seatCount = null,
   maxMissiles = SHIP.maxMissiles,
 }) {
   const shipId = createEntity(world);
@@ -48,6 +50,8 @@ export function spawnShip(world, {
   set(world.stores.ship, shipId, {
     playerIndex,
     color,
+    seatIndex,
+    seatCount,
     width: SHIP.width,
     height: SHIP.height,
     rotationSpeed: SHIP.rotationSpeed,
@@ -78,14 +82,34 @@ export function respawnShip(world, shipId, planetId, invulnerableMs = SHIP.invul
   // circular/orbital starting velocity should scale with sqrt(multiplier).
   const circularVelocity = 0.9 * Math.sqrt(((well?.mu ?? PLANET.mu) * mult) / distance);
 
-  const isP1 = ship.playerIndex === 1;
-  const x = planetT.x + (isP1 ? -distance : distance);
-  const y = planetT.y;
+  let x;
+  let y;
+  let vx;
+  let vy;
+  let angle;
 
-  const vx = 0;
-  const vy = isP1 ? -circularVelocity : circularVelocity;
+  if (Number.isFinite(ship.seatIndex) && Number.isFinite(ship.seatCount) && ship.seatCount > 0) {
+    // Evenly distribute around the center starting at 9 o'clock.
+    const theta = Math.PI + (ship.seatIndex * (Math.PI * 2)) / ship.seatCount;
+    x = planetT.x + distance * Math.cos(theta);
+    y = planetT.y + distance * Math.sin(theta);
 
-  const angle = (Math.atan2(vy, vx) + Math.PI * 2) % (Math.PI * 2);
+    // Tangential velocity for circular-ish orbit.
+    vx = circularVelocity * -Math.sin(theta);
+    vy = circularVelocity * Math.cos(theta);
+
+    angle = (Math.atan2(vy, vx) + Math.PI * 2) % (Math.PI * 2);
+  } else {
+    // Legacy 2-player respawn behavior.
+    const isP1 = ship.playerIndex === 1;
+    x = planetT.x + (isP1 ? -distance : distance);
+    y = planetT.y;
+
+    vx = 0;
+    vy = isP1 ? -circularVelocity : circularVelocity;
+
+    angle = (Math.atan2(vy, vx) + Math.PI * 2) % (Math.PI * 2);
+  }
 
   set(world.stores.transform, shipId, { x, y, angle });
   set(world.stores.velocity, shipId, { x: vx, y: vy });
