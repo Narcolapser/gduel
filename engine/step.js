@@ -887,6 +887,7 @@ export function getUiSnapshot(world) {
     ships.push({
       id,
       playerIndex: ship.playerIndex,
+      color: ship.color,
       score,
       fuel,
       maxFuel: world.stores.fuel.get(id)?.max ?? 0,

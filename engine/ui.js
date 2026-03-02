@@ -1,5 +1,16 @@
 import { MAX_FUEL_SECONDS, TOTAL_FUEL_LINES } from './constants.js';
 
+function setHudColor(document, slot, color) {
+  const scoreEl = document.getElementById(`score-${slot}`);
+  if (scoreEl) scoreEl.style.color = color || '';
+
+  const fuelEl = document.getElementById(`fuel-display-${slot}`);
+  if (fuelEl) fuelEl.style.borderColor = color || '';
+
+  const ammoEl = document.getElementById(`ammo-display-${slot}`);
+  if (ammoEl) ammoEl.style.borderColor = color || '';
+}
+
 function updateAmmoDisplay(document, containerId, remaining, total) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -32,7 +43,7 @@ function updateAmmoDisplay(document, containerId, remaining, total) {
   }
 }
 
-function updateFuelDisplay(document, elementId, fuelSeconds) {
+function updateFuelDisplay(document, elementId, fuelSeconds, color = null) {
   const fuelElement = document.getElementById(elementId);
   if (!fuelElement) return;
 
@@ -42,6 +53,10 @@ function updateFuelDisplay(document, elementId, fuelSeconds) {
   for (let i = 0; i < fuelLines; i++) {
     const fuelLineDiv = document.createElement('div');
     fuelLineDiv.className = 'fuel-line';
+    if (color) {
+      fuelLineDiv.style.backgroundColor = color;
+      fuelLineDiv.style.boxShadow = `0 0 5px ${color}`;
+    }
     fuelElement.appendChild(fuelLineDiv);
   }
 }
@@ -51,9 +66,11 @@ export function updateUi(document, snapshot, { activePlayerIndex = null } = {}) 
     const active = snapshot.ships.find((s) => s.playerIndex === activePlayerIndex);
     if (!active) return;
 
+    setHudColor(document, 'p1', active.color);
+
     const scoreEl = document.getElementById('score-p1');
     if (scoreEl) scoreEl.textContent = String(active.score);
-    updateFuelDisplay(document, 'fuel-display-p1', active.fuel);
+    updateFuelDisplay(document, 'fuel-display-p1', active.fuel, active.color);
     updateAmmoDisplay(
       document,
       'missile-icons-p1',
@@ -62,18 +79,20 @@ export function updateUi(document, snapshot, { activePlayerIndex = null } = {}) 
     );
 
     // Clear the second panel if it exists.
+    setHudColor(document, 'p2', null);
     const scoreEl2 = document.getElementById('score-p2');
     if (scoreEl2) scoreEl2.textContent = '';
-    updateFuelDisplay(document, 'fuel-display-p2', 0);
+    updateFuelDisplay(document, 'fuel-display-p2', 0, null);
     updateAmmoDisplay(document, 'missile-icons-p2', 0, 0);
     return;
   }
 
   for (const ship of snapshot.ships) {
     if (ship.playerIndex === 1) {
+      setHudColor(document, 'p1', ship.color);
       const scoreEl = document.getElementById('score-p1');
       if (scoreEl) scoreEl.textContent = String(ship.score);
-      updateFuelDisplay(document, 'fuel-display-p1', ship.fuel);
+      updateFuelDisplay(document, 'fuel-display-p1', ship.fuel, ship.color);
       updateAmmoDisplay(
         document,
         'missile-icons-p1',
@@ -81,9 +100,10 @@ export function updateUi(document, snapshot, { activePlayerIndex = null } = {}) 
         ship.maxMissiles,
       );
     } else if (ship.playerIndex === 2) {
+      setHudColor(document, 'p2', ship.color);
       const scoreEl = document.getElementById('score-p2');
       if (scoreEl) scoreEl.textContent = String(ship.score);
-      updateFuelDisplay(document, 'fuel-display-p2', ship.fuel);
+      updateFuelDisplay(document, 'fuel-display-p2', ship.fuel, ship.color);
       updateAmmoDisplay(
         document,
         'missile-icons-p2',
