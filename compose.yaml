@@ -1,0 +1,11 @@
+services:
+  gduel:
+    build: .
+    container_name: gduel
+    restart: unless-stopped
+    environment:
+      GDUEL_HOST: 0.0.0.0
+      GDUEL_PORT: 8000
+      GDUEL_STATIC: /app
+    ports:
+      - "8000:8000"
