@@ -8,4 +8,4 @@ services:
       GDUEL_PORT: 8000
       GDUEL_STATIC: /app
     ports:
-      - "8000:8000"
+      - "5025:8000"
