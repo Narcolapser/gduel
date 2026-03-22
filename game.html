@@ -86,6 +86,42 @@
             white-space: pre-wrap;
         }
 
+        .victory-panel {
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+            margin-top: 6px;
+        }
+
+        .victory-panel.is-active {
+            display: flex;
+        }
+
+        .victory-summary {
+            font-size: clamp(0.7rem, 2vw, 0.9rem);
+            color: #e0e0e0;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .victory-stats {
+            display: grid;
+            gap: 8px;
+            width: min(360px, 80vw);
+        }
+
+        .victory-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background-color: rgba(0, 0, 0, 0.35);
+            font-size: clamp(0.55rem, 1.4vw, 0.75rem);
+        }
+
         .options-tabs {
             display: flex;
             gap: 10px;
@@ -515,6 +551,16 @@
                     <div id="tab-config" class="tab-panel">
                         <div id="menuOptions" class="menu-options">
                             <div class="menu-option">
+                                <div class="menu-option-label">Game Mode</div>
+                                <div class="menu-option-controls">
+                                    <select id="gameModeSelect" class="menu-number" aria-label="Game mode">
+                                        <option value="point">point match</option>
+                                        <option value="stock">stock match</option>
+                                        <option value="timed">timed match</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="menu-option">
                                 <div class="menu-option-label">Game Speed</div>
                                 <div class="menu-option-controls">
                                     <input
@@ -568,7 +614,7 @@
                                 </div>
                             </div>
 
-                            <div class="menu-option">
+                            <div id="objectiveScoreOption" class="menu-option">
                                 <div class="menu-option-label">Objective Score</div>
                                 <div class="menu-option-controls">
                                     <input
@@ -578,6 +624,34 @@
                                         step="1"
                                         value="5"
                                         aria-label="Objective score"
+                                    />
+                                </div>
+                            </div>
+
+                            <div id="stockLivesOption" class="menu-option" style="display: none;">
+                                <div class="menu-option-label">Stock Lives</div>
+                                <div class="menu-option-controls">
+                                    <input
+                                        id="stockLivesInput"
+                                        class="menu-number"
+                                        type="number"
+                                        step="1"
+                                        value="5"
+                                        aria-label="Stock lives"
+                                    />
+                                </div>
+                            </div>
+
+                            <div id="timedLengthOption" class="menu-option" style="display: none;">
+                                <div class="menu-option-label">Timed Length (sec)</div>
+                                <div class="menu-option-controls">
+                                    <input
+                                        id="timedLengthInput"
+                                        class="menu-number"
+                                        type="number"
+                                        step="10"
+                                        value="120"
+                                        aria-label="Timed match length"
                                     />
                                 </div>
                             </div>
@@ -594,6 +668,11 @@
                 <div id="pause-button-container" class="pause-button-container">
                     <button id="resumeButton" class="action-button">Resume</button>
                     <button id="quitButton" class="action-button">Quit</button>
+                </div>
+                <div id="victoryPanel" class="victory-panel">
+                    <div id="victorySummary" class="victory-summary"></div>
+                    <div id="victoryStats" class="victory-stats"></div>
+                    <button id="rematchButton" class="action-button">Rematch</button>
                 </div>
             </div>
         </div>
@@ -615,7 +694,7 @@
 
     <script type="module">
         import { createMatch, resetMatch, resizeMatch, setBotEnabled } from './engine/game.js';
-        import { getUiSnapshot, stepWorld } from './engine/step.js';
+        import { getStatsSnapshot, getUiSnapshot, stepWorld } from './engine/step.js';
         import { updateUi } from './engine/ui.js';
         import { cleanupDead, killEntity } from './engine/world.js';
 
@@ -654,10 +733,20 @@
             const gameSpeedSlider = document.getElementById('gameSpeedSlider');
             const gameSpeedValue = document.getElementById('gameSpeedValue');
             const borderModeSelect = document.getElementById('borderModeSelect');
+            const gameModeSelect = document.getElementById('gameModeSelect');
             const maxShotsInput = document.getElementById('maxShotsInput');
+            const objectiveScoreOption = document.getElementById('objectiveScoreOption');
             const objectiveScoreInput = document.getElementById('objectiveScoreInput');
+            const stockLivesOption = document.getElementById('stockLivesOption');
+            const stockLivesInput = document.getElementById('stockLivesInput');
+            const timedLengthOption = document.getElementById('timedLengthOption');
+            const timedLengthInput = document.getElementById('timedLengthInput');
             const missilesDieWithShipCheckbox = document.getElementById('missilesDieWithShipCheckbox');
             const mapSelect = document.getElementById('mapSelect');
+            const victoryPanel = document.getElementById('victoryPanel');
+            const victorySummary = document.getElementById('victorySummary');
+            const victoryStats = document.getElementById('victoryStats');
+            const rematchButton = document.getElementById('rematchButton');
 
             let isGameRunning = false;
             let isGamePaused = false;
@@ -708,7 +797,10 @@
             let gameSpeed = 1;
             let maxShots = 3;
             let borderMode = 'outerSpace';
+            let gameMode = 'point';
             let objectiveScore = 5;
+            let stockLives = 5;
+            let timedLengthSeconds = 120;
             let missilesDieWithShip = false;
             let mapId = 'classic';
 
@@ -925,7 +1017,10 @@
                     mapId,
                     borderMode,
                     maxShots,
+                    gameMode,
                     objectiveScore,
+                    stockLives,
+                    timedLengthSeconds,
                     missilesDieWithShip,
                     gameSpeed,
                 };
@@ -940,8 +1035,11 @@
                 const allow = onlineMode && isPlayerOne() && !onlineStarted;
                 if (gameSpeedSlider) gameSpeedSlider.disabled = !allow;
                 if (borderModeSelect) borderModeSelect.disabled = !allow;
+                if (gameModeSelect) gameModeSelect.disabled = !allow;
                 if (maxShotsInput) maxShotsInput.disabled = !allow;
                 if (objectiveScoreInput) objectiveScoreInput.disabled = !allow;
+                if (stockLivesInput) stockLivesInput.disabled = !allow;
+                if (timedLengthInput) timedLengthInput.disabled = !allow;
                 if (missilesDieWithShipCheckbox) missilesDieWithShipCheckbox.disabled = !allow;
                 if (mapSelect) mapSelect.disabled = !allow;
             }
@@ -989,6 +1087,27 @@
                 applyBorderColor();
                 try {
                     localStorage.setItem('gduel.borderMode', borderMode);
+                } catch (_) {
+                    // Ignore storage failures
+                }
+            }
+
+            function updateModeUi() {
+                const isPoint = gameMode === 'point';
+                const isStock = gameMode === 'stock';
+                const isTimed = gameMode === 'timed';
+                if (objectiveScoreOption) objectiveScoreOption.style.display = isPoint ? 'flex' : 'none';
+                if (stockLivesOption) stockLivesOption.style.display = isStock ? 'flex' : 'none';
+                if (timedLengthOption) timedLengthOption.style.display = isTimed ? 'flex' : 'none';
+            }
+
+            function setGameMode(mode) {
+                const next = String(mode || 'point');
+                gameMode = ['point', 'stock', 'timed'].includes(next) ? next : 'point';
+                if (gameModeSelect) gameModeSelect.value = gameMode;
+                updateModeUi();
+                try {
+                    localStorage.setItem('gduel.gameMode', gameMode);
                 } catch (_) {
                     // Ignore storage failures
                 }
@@ -1075,6 +1194,38 @@
                 }
             }
 
+            function parseStockLives(value) {
+                const n = Number(value);
+                if (!Number.isFinite(n)) return 5;
+                return Math.max(1, Math.floor(n));
+            }
+
+            function setStockLives(value) {
+                stockLives = parseStockLives(value);
+                if (stockLivesInput) stockLivesInput.value = String(stockLives);
+                try {
+                    localStorage.setItem('gduel.stockLives', String(stockLives));
+                } catch (_) {
+                    // Ignore storage failures
+                }
+            }
+
+            function parseTimedLengthSeconds(value) {
+                const n = Number(value);
+                if (!Number.isFinite(n)) return 120;
+                return Math.max(30, Math.floor(n));
+            }
+
+            function setTimedLengthSeconds(value) {
+                timedLengthSeconds = parseTimedLengthSeconds(value);
+                if (timedLengthInput) timedLengthInput.value = String(timedLengthSeconds);
+                try {
+                    localStorage.setItem('gduel.timedLengthSeconds', String(timedLengthSeconds));
+                } catch (_) {
+                    // Ignore storage failures
+                }
+            }
+
             // Initialize from storage.
             try {
                 const saved = localStorage.getItem('gduel.gameSpeed');
@@ -1090,6 +1241,14 @@
                 else setBorderMode('outerSpace');
             } catch (_) {
                 setBorderMode('outerSpace');
+            }
+
+            try {
+                const savedMode = localStorage.getItem('gduel.gameMode');
+                if (savedMode != null) setGameMode(savedMode);
+                else setGameMode('point');
+            } catch (_) {
+                setGameMode('point');
             }
 
             try {
@@ -1117,6 +1276,22 @@
             }
 
             try {
+                const savedLives = localStorage.getItem('gduel.stockLives');
+                if (savedLives != null) setStockLives(savedLives);
+                else setStockLives(5);
+            } catch (_) {
+                setStockLives(5);
+            }
+
+            try {
+                const savedTimed = localStorage.getItem('gduel.timedLengthSeconds');
+                if (savedTimed != null) setTimedLengthSeconds(savedTimed);
+                else setTimedLengthSeconds(120);
+            } catch (_) {
+                setTimedLengthSeconds(120);
+            }
+
+            try {
                 const savedMissilesDie = localStorage.getItem('gduel.missilesDieWithShip');
                 if (savedMissilesDie != null) setMissilesDieWithShip(savedMissilesDie !== '0');
                 else setMissilesDieWithShip(false);
@@ -1133,6 +1308,12 @@
             if (borderModeSelect) {
                 borderModeSelect.addEventListener('change', (e) => {
                     setBorderMode(e.target.value);
+                });
+            }
+
+            if (gameModeSelect) {
+                gameModeSelect.addEventListener('change', (e) => {
+                    setGameMode(e.target.value);
                 });
             }
 
@@ -1159,6 +1340,18 @@
             if (objectiveScoreInput) {
                 objectiveScoreInput.addEventListener('input', (e) => {
                     setObjectiveScore(e.target.value);
+                });
+            }
+
+            if (stockLivesInput) {
+                stockLivesInput.addEventListener('input', (e) => {
+                    setStockLives(e.target.value);
+                });
+            }
+
+            if (timedLengthInput) {
+                timedLengthInput.addEventListener('input', (e) => {
+                    setTimedLengthSeconds(e.target.value);
                 });
             }
 
@@ -1258,7 +1451,7 @@
                         dtMs: 0,
                         planetId: match.planetId,
                         borderMode,
-                        winningScore: objectiveScore,
+                        winningScore: gameMode === 'point' ? objectiveScore : Number.POSITIVE_INFINITY,
                         missilesDieWithShip,
                     }
                 );
@@ -1267,34 +1460,102 @@
                 else updateUi(document, snap);
             }
 
-            function endGame() {
-                isGameRunning = false;
-                cancelAnimationFrame(animationFrameId);
-                let finalMessage;
+            function getStatsForMatch() {
+                if (!match) return [];
+                const snap = getStatsSnapshot(match.world);
+                return snap.ships.sort((a, b) => a.playerIndex - b.playerIndex);
+            }
 
-                const player1Type = isPlayer1Bot ? 'Bot' : 'Human';
-                const player2Type = isPlayer2Bot ? 'Bot' : 'Human';
+            function playerLabelForStats(stat) {
+                if (onlineMode && myPlayerIndex != null) {
+                    return stat.playerIndex === myPlayerIndex ? 'You' : `Player ${stat.playerIndex}`;
+                }
+                if (stat.playerIndex === 1) return `Player 1 (${isPlayer1Bot ? 'Bot' : 'Human'})`;
+                if (stat.playerIndex === 2) return `Player 2 (${isPlayer2Bot ? 'Bot' : 'Human'})`;
+                return `Player ${stat.playerIndex}`;
+            }
 
-                const snapshot = getUiSnapshot(match.world);
-                const winner = snapshot.ships.find(s => s.score >= objectiveScore);
+            function formatDurationMs(ms) {
+                const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                return `${minutes}:${String(seconds).padStart(2, '0')}`;
+            }
 
-                if (winner) {
-                    if (onlineMode && myPlayerIndex != null) {
-                        const label = winner.playerIndex === myPlayerIndex ? 'You' : `Player ${winner.playerIndex}`;
-                        finalMessage = `${label} win the match with ${winner.score} points!`;
-                    } else {
-                        // Local 2p fallback text.
-                        if (winner.playerIndex === 1) {
-                            finalMessage = `Player 1 (Green, ${player1Type}) wins the match with ${winner.score} points!`;
-                        } else if (winner.playerIndex === 2) {
-                            finalMessage = `Player 2 (Red, ${player2Type}) wins the match with ${winner.score} points!`;
-                        } else {
-                            finalMessage = `Player ${winner.playerIndex} wins the match with ${winner.score} points!`;
-                        }
-                    }
+            function renderVictoryStats(stats) {
+                if (!victoryStats) return;
+                victoryStats.innerHTML = '';
+                stats.forEach((stat) => {
+                    const row = document.createElement('div');
+                    row.className = 'victory-row';
+
+                    const label = document.createElement('div');
+                    label.textContent = playerLabelForStats(stat);
+
+                    const values = document.createElement('div');
+                    values.textContent = `Kills ${stat.kills} | Deaths ${stat.deaths} | Crashes ${stat.crashes}`;
+
+                    row.appendChild(label);
+                    row.appendChild(values);
+                    victoryStats.appendChild(row);
+                });
+            }
+
+            function resolveOutcome(result) {
+                const stats = getStatsForMatch();
+                if (stats.length === 0) return null;
+
+                if (gameMode === 'point') {
+                    if (!result.winnerShipId) return null;
+                    return {
+                        winnerShipId: result.winnerShipId,
+                        isDraw: false,
+                        summary: `Point match to ${objectiveScore} points.`,
+                    };
                 }
 
-                showMessageBox('win/loss', finalMessage);
+                if (gameMode === 'stock') {
+                    const alive = stats.filter((s) => (stockLives - s.deaths) > 0);
+                    if (alive.length > 1) return null;
+                    return {
+                        winnerShipId: alive[0]?.id ?? null,
+                        isDraw: alive.length === 0,
+                        summary: `Stock match with ${stockLives} lives.`,
+                    };
+                }
+
+                if (gameMode === 'timed') {
+                    if ((match?.world.resources.gameTimeMs ?? 0) < timedLengthSeconds * 1000) return null;
+                    const topScore = Math.max(...stats.map((s) => s.score));
+                    const leaders = stats.filter((s) => s.score === topScore);
+                    return {
+                        winnerShipId: leaders.length === 1 ? leaders[0].id : null,
+                        isDraw: leaders.length !== 1,
+                        summary: `Timed match for ${formatDurationMs(timedLengthSeconds * 1000)}.`,
+                    };
+                }
+
+                return null;
+            }
+
+            function endGame(outcome) {
+                isGameRunning = false;
+                cancelAnimationFrame(animationFrameId);
+                const stats = getStatsForMatch();
+                const winner = outcome?.winnerShipId
+                    ? stats.find((s) => s.id === outcome.winnerShipId)
+                    : null;
+                let title = 'Match Over';
+                if (outcome?.isDraw) {
+                    title = 'Draw!';
+                } else if (winner) {
+                    const label = playerLabelForStats(winner);
+                    title = label === 'You' ? 'You win!' : `${label} wins!`;
+                }
+
+                showMessageBox('victory', title);
+                if (victorySummary) victorySummary.textContent = outcome?.summary ?? '';
+                renderVictoryStats(stats);
             }
 
             function removePlayerShip(playerIndex) {
@@ -1350,7 +1611,7 @@
                             dtMs: 0,
                             planetId: match.planetId,
                             borderMode,
-                            winningScore: objectiveScore,
+                            winningScore: gameMode === 'point' ? objectiveScore : Number.POSITIVE_INFINITY,
                             missilesDieWithShip,
                         }
                     );
@@ -1360,7 +1621,7 @@
                 }
 
                 const label = winnerIndex && winnerIndex === myPlayerIndex ? 'You' : `Player ${winnerIndex}`;
-                showMessageBox('win/loss', `${label} win by disconnect.`);
+                showMessageBox('start', `${label} win by disconnect.`);
             }
 
             function resizeCanvas() {
@@ -1399,7 +1660,7 @@
                         dtMs: 0,
                         planetId: match.planetId,
                         borderMode,
-                        winningScore: objectiveScore,
+                        winningScore: gameMode === 'point' ? objectiveScore : Number.POSITIVE_INFINITY,
                         missilesDieWithShip,
                     }
                 );
@@ -1413,22 +1674,25 @@
             function showMessageBox(type, message) {
                 messageText.textContent = message;
                 messageBox.style.display = 'flex';
+                if (victoryPanel) victoryPanel.classList.toggle('is-active', type === 'victory');
                 
                 if (type === 'start') {
                     readyButtonContainer.style.display = 'flex';
                     pauseButtonContainer.style.display = 'none';
                     if (optionsTabs) optionsTabs.style.display = 'flex';
                     if (optionsPanels) optionsPanels.style.display = 'block';
+                    if (victoryPanel) victoryPanel.classList.remove('is-active');
                 } else if (type === 'pause') {
                     readyButtonContainer.style.display = 'none';
                     pauseButtonContainer.style.display = 'flex';
                     if (optionsTabs) optionsTabs.style.display = 'none';
                     if (optionsPanels) optionsPanels.style.display = 'none';
-                } else if (type === 'win/loss') {
-                    readyButtonContainer.style.display = 'flex';
+                    if (victoryPanel) victoryPanel.classList.remove('is-active');
+                } else if (type === 'victory') {
+                    readyButtonContainer.style.display = 'none';
                     pauseButtonContainer.style.display = 'none';
-                    if (optionsTabs) optionsTabs.style.display = 'flex';
-                    if (optionsPanels) optionsPanels.style.display = 'block';
+                    if (optionsTabs) optionsTabs.style.display = 'none';
+                    if (optionsPanels) optionsPanels.style.display = 'none';
                 }
             }
             
@@ -1452,7 +1716,7 @@
                         dtMs: 0,
                         planetId: match.planetId,
                         borderMode,
-                        winningScore: objectiveScore,
+                        winningScore: gameMode === 'point' ? objectiveScore : Number.POSITIVE_INFINITY,
                         missilesDieWithShip,
                     }
                 );
@@ -1524,7 +1788,7 @@
                         dtMs,
                         planetId: match.planetId,
                         borderMode,
-                        winningScore: objectiveScore,
+                        winningScore: gameMode === 'point' ? objectiveScore : Number.POSITIVE_INFINITY,
                         missilesDieWithShip,
                     }
                 );
@@ -1532,8 +1796,9 @@
 
                 updateUi(document, getUiSnapshot(match.world));
 
-                if (result.winnerShipId) {
-                    endGame();
+                const outcome = resolveOutcome(result);
+                if (outcome) {
+                    endGame(outcome);
                     return;
                 }
 
@@ -1596,13 +1861,22 @@
             
             resumeButton.addEventListener('click', resumeGame);
             quitButton.addEventListener('click', quitGame);
+            if (rematchButton) {
+                rematchButton.addEventListener('click', () => {
+                    quitGame();
+                    setActiveTab('lobby');
+                });
+            }
 
             function applyOnlineConfig(cfg) {
                 if (!cfg || typeof cfg !== 'object') return;
                 if (cfg.mapId != null) setMap(cfg.mapId);
                 if (cfg.borderMode != null) setBorderMode(cfg.borderMode);
                 if (cfg.maxShots != null) setMaxShots(cfg.maxShots);
+                if (cfg.gameMode != null) setGameMode(cfg.gameMode);
                 if (cfg.objectiveScore != null) setObjectiveScore(cfg.objectiveScore);
+                if (cfg.stockLives != null) setStockLives(cfg.stockLives);
+                if (cfg.timedLengthSeconds != null) setTimedLengthSeconds(cfg.timedLengthSeconds);
                 if (cfg.missilesDieWithShip != null) setMissilesDieWithShip(cfg.missilesDieWithShip);
                 if (cfg.gameSpeed != null) setGameSpeed(cfg.gameSpeed);
 
@@ -1755,16 +2029,17 @@
                                 dtMs,
                                 planetId: match.planetId,
                                 borderMode,
-                                winningScore: objectiveScore,
+                                winningScore: gameMode === 'point' ? objectiveScore : Number.POSITIVE_INFINITY,
                                 missilesDieWithShip,
                             }
                         );
 
                         updateUi(document, getUiSnapshot(match.world), { activePlayerIndex: myPlayerIndex });
 
-                        if (result.winnerShipId) {
+                        const outcome = resolveOutcome(result);
+                        if (outcome) {
                             wsSend({ type: 'end' });
-                            endGame();
+                            endGame(outcome);
                         }
                         return;
                     }
@@ -1841,9 +2116,12 @@
 
             if (gameSpeedSlider) gameSpeedSlider.addEventListener('change', maybeSendOnlineConfig);
             if (borderModeSelect) borderModeSelect.addEventListener('change', maybeSendOnlineConfig);
+            if (gameModeSelect) gameModeSelect.addEventListener('change', maybeSendOnlineConfig);
             if (mapSelect) mapSelect.addEventListener('change', maybeSendOnlineConfig);
             if (maxShotsInput) maxShotsInput.addEventListener('change', maybeSendOnlineConfig);
             if (objectiveScoreInput) objectiveScoreInput.addEventListener('change', maybeSendOnlineConfig);
+            if (stockLivesInput) stockLivesInput.addEventListener('change', maybeSendOnlineConfig);
+            if (timedLengthInput) timedLengthInput.addEventListener('change', maybeSendOnlineConfig);
             if (missilesDieWithShipCheckbox) missilesDieWithShipCheckbox.addEventListener('change', maybeSendOnlineConfig);
 
             showMessageBox('start', 'Click "Ready" to Begin');

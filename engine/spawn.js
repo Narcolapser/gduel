@@ -61,6 +61,7 @@ export function spawnShip(world, {
     wellContact: false,
   });
   set(world.stores.score, shipId, { value: 0 });
+  set(world.stores.stats, shipId, { kills: 0, deaths: 0, crashes: 0 });
   set(world.stores.fuel, shipId, { value: MAX_FUEL_SECONDS, max: MAX_FUEL_SECONDS });
   set(world.stores.gravityMultiplier, shipId, GRAVITY_MULTIPLIERS.ship);
   set(world.stores.playerInput, shipId, inputKeys);
@@ -171,6 +172,14 @@ export function spawnMissile(world, { shipId }) {
 export function resetScores(world) {
   for (const [shipId, score] of world.stores.score) {
     score.value = 0;
+  }
+}
+
+export function resetStats(world) {
+  for (const [shipId, stats] of world.stores.stats) {
+    stats.kills = 0;
+    stats.deaths = 0;
+    stats.crashes = 0;
   }
 }
 

@@ -9,6 +9,7 @@ function makeStores() {
     owner: new Map(), // {id}
 
     score: new Map(), // {value}
+    stats: new Map(), // {kills,deaths,crashes}
     fuel: new Map(), // {value,max}
     invulnerableUntilMs: new Map(), // number
     respawnAtMs: new Map(), // number

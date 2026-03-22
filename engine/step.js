@@ -60,6 +60,26 @@ function scheduleRespawnIfNeeded(world, shipId, nowMs) {
   return true;
 }
 
+function ensureStats(world, shipId) {
+  let stats = world.stores.stats.get(shipId);
+  if (!stats) {
+    stats = { kills: 0, deaths: 0, crashes: 0 };
+    world.stores.stats.set(shipId, stats);
+  }
+  return stats;
+}
+
+function recordDeath(world, shipId, { crash = false } = {}) {
+  const stats = ensureStats(world, shipId);
+  stats.deaths += 1;
+  if (crash) stats.crashes += 1;
+}
+
+function recordKill(world, shipId) {
+  const stats = ensureStats(world, shipId);
+  stats.kills += 1;
+}
+
 function missileIds(world) {
   const ids = [];
   for (const [id] of world.stores.missile) ids.push(id);
@@ -292,6 +312,7 @@ function borderSystem(world, { borderMode, planetId }) {
         if (world.resources.missilesDieWithShip) {
           killMissilesOwnedByShip(world, shipId, { explode: true });
         }
+        recordDeath(world, shipId);
         v.x = 0;
         v.y = 0;
       }
@@ -536,6 +557,7 @@ function rulesSystem(world, planetId) {
         if (world.resources.missilesDieWithShip) {
           killMissilesOwnedByShip(world, shipId, { explode: true });
         }
+        recordDeath(world, shipId, { crash: true });
         // Freeze immediately so it stops participating in the sim.
         const v = world.stores.velocity.get(shipId);
         if (v) {
@@ -562,6 +584,7 @@ function rulesSystem(world, planetId) {
         if (world.resources.missilesDieWithShip) {
           killMissilesOwnedByShip(world, shipId, { explode: true });
         }
+        recordDeath(world, shipId);
         const v = world.stores.velocity.get(shipId);
         if (v) {
           v.x = 0;
@@ -571,6 +594,7 @@ function rulesSystem(world, planetId) {
 
       if (ownerShipId && world.stores.score.has(ownerShipId)) {
         world.stores.score.get(ownerShipId).value++;
+        recordKill(world, ownerShipId);
       }
 
       // Preserve old behavior: missile hit instantly kills even if it would also hit planet.
@@ -599,6 +623,7 @@ function rulesSystem(world, planetId) {
           if (world.resources.missilesDieWithShip) {
             killMissilesOwnedByShip(world, b, { explode: true });
           }
+          recordDeath(world, b);
           const v = world.stores.velocity.get(b);
           if (v) {
             v.x = 0;
@@ -606,12 +631,14 @@ function rulesSystem(world, planetId) {
           }
         }
         world.stores.score.get(a).value++;
+        recordKill(world, a);
       } else if (bSpeed > aSpeed) {
         if (scheduleRespawnIfNeeded(world, a, nowMs)) {
           markExplosion(world, aT.x, aT.y, aShip.color);
           if (world.resources.missilesDieWithShip) {
             killMissilesOwnedByShip(world, a, { explode: true });
           }
+          recordDeath(world, a);
           const v = world.stores.velocity.get(a);
           if (v) {
             v.x = 0;
@@ -619,12 +646,14 @@ function rulesSystem(world, planetId) {
           }
         }
         world.stores.score.get(b).value++;
+        recordKill(world, b);
       } else {
         if (scheduleRespawnIfNeeded(world, a, nowMs)) {
           markExplosion(world, aT.x, aT.y, aShip.color);
           if (world.resources.missilesDieWithShip) {
             killMissilesOwnedByShip(world, a, { explode: true });
           }
+          recordDeath(world, a);
           const v = world.stores.velocity.get(a);
           if (v) {
             v.x = 0;
@@ -636,6 +665,7 @@ function rulesSystem(world, planetId) {
           if (world.resources.missilesDieWithShip) {
             killMissilesOwnedByShip(world, b, { explode: true });
           }
+          recordDeath(world, b);
           const v = world.stores.velocity.get(b);
           if (v) {
             v.x = 0;
@@ -699,7 +729,9 @@ function noFuelSystem(world, planetId) {
           killMissilesOwnedByShip(world, sid, { explode: true });
         }
 
-        world.stores.respawnAtMs.set(sid, nowMs + SHIP.respawnDelayMs);
+        if (scheduleRespawnIfNeeded(world, sid, nowMs)) {
+          recordDeath(world, sid);
+        }
       }
 
       world.resources.noFuelStartMs = null;
@@ -893,6 +925,24 @@ export function getUiSnapshot(world) {
       maxFuel: world.stores.fuel.get(id)?.max ?? 0,
       activeMissiles,
       maxMissiles: ship.maxMissiles,
+    });
+  }
+  return { ships };
+}
+
+export function getStatsSnapshot(world) {
+  const ships = [];
+  for (const [id, ship] of world.stores.ship) {
+    const score = world.stores.score.get(id)?.value ?? 0;
+    const stats = world.stores.stats.get(id) ?? { kills: 0, deaths: 0, crashes: 0 };
+    ships.push({
+      id,
+      playerIndex: ship.playerIndex,
+      color: ship.color,
+      score,
+      kills: stats.kills ?? 0,
+      deaths: stats.deaths ?? 0,
+      crashes: stats.crashes ?? 0,
     });
   }
   return { ships };

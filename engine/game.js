@@ -1,7 +1,7 @@
 import { GRAVITY_MULTIPLIERS, PLANET, SHIP } from './constants.js';
 import { createWorld } from './world.js';
 import { createMap } from './maps.js';
-import { resetScores, respawnShip, spawnShip } from './spawn.js';
+import { resetScores, resetStats, respawnShip, spawnShip } from './spawn.js';
 
 const DEFAULT_PLAYER_COLORS = [
   '#00ff00',
@@ -117,6 +117,7 @@ export function setBotEnabled(world, shipId, enabled) {
 
 export function resetMatch(world, { planetId, ship1Id, ship2Id }) {
   resetScores(world);
+  resetStats(world);
   if (Array.isArray(arguments[1]?.shipIds) && arguments[1].shipIds.length > 0) {
     for (const sid of arguments[1].shipIds) respawnShip(world, sid, planetId, 0);
   } else {

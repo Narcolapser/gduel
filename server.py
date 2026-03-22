@@ -157,12 +157,16 @@ class Room:
 			if cfg.get("borderMode") in {"outerSpace", "concrete", "rubber", "wrap"}
 			else "outerSpace"
 		)
+		game_mode = cfg.get("gameMode") if cfg.get("gameMode") in {"point", "stock", "timed"} else "point"
 
 		return {
 			"mapId": map_id,
 			"borderMode": border_mode,
 			"maxShots": clamp_int(cfg.get("maxShots"), 3, min_value=0, max_value=999),
 			"objectiveScore": clamp_int(cfg.get("objectiveScore"), 5, min_value=1, max_value=999),
+			"gameMode": game_mode,
+			"stockLives": clamp_int(cfg.get("stockLives"), 5, min_value=1, max_value=99),
+			"timedLengthSeconds": clamp_int(cfg.get("timedLengthSeconds"), 120, min_value=30, max_value=3600),
 			"missilesDieWithShip": bool(cfg.get("missilesDieWithShip", False)),
 			"gameSpeed": clamp_float(cfg.get("gameSpeed"), 1.0, min_value=0.5, max_value=4.0),
 		}
@@ -189,6 +193,9 @@ class Room:
 					"borderMode": "outerSpace",
 					"maxShots": 3,
 					"objectiveScore": 5,
+					"gameMode": "point",
+					"stockLives": 5,
+					"timedLengthSeconds": 120,
 					"missilesDieWithShip": False,
 					"gameSpeed": 1.0,
 				},
