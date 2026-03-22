@@ -14,6 +14,24 @@ TICK_MS = 1000 / 60
 TICK_S = TICK_MS / 1000
 MAX_PLAYERS = 8
 ROOM_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{6,16}$")
+COLOR_PALETTE = [
+	"#00d9ff",
+	"#ff6b35",
+	"#ffd166",
+	"#06d6a0",
+	"#8ecae6",
+	"#b5179e",
+	"#f72585",
+	"#3a86ff",
+	"#8338ec",
+	"#ffbe0b",
+	"#fb5607",
+	"#ff006e",
+	"#3a0ca3",
+	"#4cc9f0",
+	"#2ec4b6",
+	"#a7c957",
+]
 
 
 def _json_dumps(obj: Any) -> str:
@@ -266,6 +284,59 @@ def get_room(room_id: str) -> Room:
 	return room
 
 
+def pick_unique_color(room: Room, desired: str | None, *, player_index: int) -> str:
+	used = {
+		p.color
+		for p in room.players_by_index.values()
+		if p.player_index != player_index and isinstance(p.color, str)
+	}
+	palette = [c for c in COLOR_PALETTE if c not in used]
+
+	if desired in COLOR_PALETTE and desired not in used:
+		return desired
+	if palette:
+		return secrets.choice(palette)
+	if desired in COLOR_PALETTE:
+		return desired
+	return secrets.choice(COLOR_PALETTE)
+
+
+async def resolve_profile_color(room: Room, player: PlayerConn, desired: str | None) -> None:
+	if desired not in COLOR_PALETTE:
+		desired = None
+
+	conflict = None
+	if desired:
+		for p in room.players_by_index.values():
+			if p.player_index == player.player_index:
+				continue
+			if p.color == desired:
+				conflict = p
+				break
+
+	if conflict is None:
+		player.color = pick_unique_color(room, desired, player_index=player.player_index)
+		return
+
+	used_other = {
+		p.color
+		for p in room.players_by_index.values()
+		if p.player_index not in (player.player_index, conflict.player_index) and isinstance(p.color, str)
+	}
+	available = [c for c in COLOR_PALETTE if c not in used_other and c != desired]
+	if not available:
+		player.color = desired
+		return
+
+	new_color = secrets.choice(available)
+	if secrets.randbelow(2) == 0:
+		conflict.color = new_color
+		await ws_send_json(conflict.ws, {"type": "profile", "name": conflict.name, "color": conflict.color})
+		player.color = desired
+	else:
+		player.color = new_color
+
+
 def generate_room_id() -> str:
 	for _ in range(10):
 		room_id = secrets.token_hex(4)
@@ -308,7 +379,12 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 
 				if mtype == "profile":
 					player.name = sanitize_name(data.get("name"))
-					player.color = sanitize_color(data.get("color"))
+					desired = sanitize_color(data.get("color"))
+					await resolve_profile_color(room, player, desired)
+					await ws_send_json(
+						player.ws,
+						{"type": "profile", "name": player.name, "color": player.color},
+					)
 					await room.broadcast_status()
 					continue
 

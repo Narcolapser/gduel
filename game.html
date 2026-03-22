@@ -135,6 +135,42 @@
             box-sizing: border-box;
         }
 
+        .menu-text-input {
+            width: min(360px, 75vw);
+        }
+
+        .color-swatch-grid {
+            display: grid;
+            grid-template-columns: repeat(8, minmax(0, 1fr));
+            gap: 6px;
+            width: min(360px, 75vw);
+        }
+
+        .color-swatch {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 6px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            background: #ffffff;
+        }
+
+        .color-swatch.is-selected {
+            border-color: #ffffff;
+        }
+
+        .room-link-text {
+            font-size: clamp(0.6rem, 1.4vw, 0.8rem);
+            line-height: 1.4;
+            word-break: break-all;
+            color: #ffffff;
+        }
+
+        .action-button.small {
+            font-size: clamp(0.6rem, 1.4vw, 0.85rem);
+            padding: 8px 14px;
+        }
+
         .action-button {
             padding: 10px 20px;
             font-family: 'Press Start 2P', monospace;
@@ -341,6 +377,32 @@
                 <div id="messageText">Welcome!</div>
                 <div id="menuOptions" class="menu-options">
                     <div class="menu-option">
+                        <div class="menu-option-label">Pilot Name</div>
+                        <div class="menu-option-controls">
+                            <input
+                                id="playerNameInput"
+                                class="menu-number menu-text-input"
+                                type="text"
+                                maxlength="24"
+                                aria-label="Pilot name"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="menu-option">
+                        <div class="menu-option-label">Ship Color</div>
+                        <div id="colorSwatches" class="color-swatch-grid" aria-label="Ship color"></div>
+                    </div>
+
+                    <div id="roomLinkOption" class="menu-option" style="display: none;">
+                        <div class="menu-option-label">Room Link</div>
+                        <div class="menu-option-controls">
+                            <div id="roomLinkText" class="room-link-text"></div>
+                            <button id="copyRoomLinkButton" class="action-button small">Copy Link</button>
+                        </div>
+                    </div>
+
+                    <div class="menu-option">
                         <div class="menu-option-label">Game Speed</div>
                         <div class="menu-option-controls">
                             <input
@@ -470,6 +532,11 @@
             const onlineReadyContainer = document.getElementById('online-ready-container');
             const localReadyContainer = document.getElementById('local-ready-container');
             const onlineStatus = document.getElementById('onlineStatus');
+            const playerNameInput = document.getElementById('playerNameInput');
+            const colorSwatches = document.getElementById('colorSwatches');
+            const roomLinkOption = document.getElementById('roomLinkOption');
+            const roomLinkText = document.getElementById('roomLinkText');
+            const copyRoomLinkButton = document.getElementById('copyRoomLinkButton');
             const readyP1Button = document.getElementById('readyP1Button');
             const readyBotP1Button = document.getElementById('readyBotP1Button');
             const readyP2Button = document.getElementById('readyP2Button');
@@ -502,6 +569,28 @@
             let onlinePlayerOrder = null;
             let onlinePlayerColors = null;
 
+            const COLOR_PALETTE = [
+                '#00d9ff',
+                '#ff6b35',
+                '#ffd166',
+                '#06d6a0',
+                '#8ecae6',
+                '#b5179e',
+                '#f72585',
+                '#3a86ff',
+                '#8338ec',
+                '#ffbe0b',
+                '#fb5607',
+                '#ff006e',
+                '#3a0ca3',
+                '#4cc9f0',
+                '#2ec4b6',
+                '#a7c957',
+            ];
+
+            let selectedColor = COLOR_PALETTE[0];
+            let playerName = '';
+
             let player1Ready = false;
             let player2Ready = false;
             let isPlayer1Bot = false;
@@ -530,11 +619,6 @@
                 onlineStatus.textContent = text;
             }
 
-            function randomColorHex() {
-                const n = Math.floor(Math.random() * 0xffffff);
-                return `#${n.toString(16).padStart(6, '0')}`;
-            }
-
             function getStoredProfile() {
                 let name = null;
                 let color = null;
@@ -548,8 +632,8 @@
                 if (!name || !name.trim()) {
                     name = `Pilot ${Math.floor(100 + Math.random() * 900)}`;
                 }
-                if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) {
-                    color = randomColorHex();
+                if (!color || !COLOR_PALETTE.includes(color)) {
+                    color = COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
                 }
 
                 try {
@@ -570,11 +654,57 @@
 
             const roomId = getRoomIdFromPath();
             const profile = getStoredProfile();
+            playerName = profile.name;
+            selectedColor = profile.color;
 
             function wsUrl() {
                 const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
                 if (roomId) return `${proto}//${location.host}/ws/${roomId}`;
                 return `${proto}//${location.host}/ws`;
+            }
+
+            function setRoomLinkUi() {
+                if (!roomId || !roomLinkOption || !roomLinkText) return;
+                roomLinkOption.style.display = 'flex';
+                roomLinkText.textContent = `${location.origin}/r/${roomId}`;
+            }
+
+            function updateProfileInputs() {
+                if (playerNameInput) playerNameInput.value = playerName;
+                if (!colorSwatches) return;
+                [...colorSwatches.querySelectorAll('.color-swatch')].forEach((el) => {
+                    el.classList.toggle('is-selected', el.dataset.color === selectedColor);
+                });
+            }
+
+            function renderColorSwatches() {
+                if (!colorSwatches) return;
+                colorSwatches.innerHTML = '';
+                COLOR_PALETTE.forEach((color) => {
+                    const swatch = document.createElement('button');
+                    swatch.type = 'button';
+                    swatch.className = 'color-swatch';
+                    swatch.style.background = color;
+                    swatch.dataset.color = color;
+                    swatch.setAttribute('aria-label', `Select ${color}`);
+                    swatch.addEventListener('click', () => {
+                        selectedColor = color;
+                        persistProfile();
+                        updateProfileInputs();
+                        if (onlineMode) wsSend({ type: 'profile', name: playerName, color: selectedColor });
+                    });
+                    colorSwatches.appendChild(swatch);
+                });
+                updateProfileInputs();
+            }
+
+            function persistProfile() {
+                try {
+                    localStorage.setItem('gduel.playerName', playerName);
+                    localStorage.setItem('gduel.playerColor', selectedColor);
+                } catch (_) {
+                    // Ignore storage failures
+                }
             }
 
             function wsSend(obj) {
@@ -1229,7 +1359,7 @@
                     showMessageBox('start', 'Online: click "Ready" when you are set.');
                     applyOnlineUiVisibility();
                     setOnlineControlsEnabled();
-                    wsSend({ type: 'profile', name: profile.name, color: profile.color });
+                    wsSend({ type: 'profile', name: playerName, color: selectedColor });
                 });
 
                 ws.addEventListener('message', (ev) => {
@@ -1246,6 +1376,16 @@
                         myPlayerIndex = data.playerIndex;
                         setOnlineStatus(`Assigned Player ${myPlayerIndex}. Click Ready.`);
                         setOnlineControlsEnabled();
+                        return;
+                    }
+
+                    if (data.type === 'profile') {
+                        if (data.name && typeof data.name === 'string') playerName = data.name;
+                        if (data.color && typeof data.color === 'string' && COLOR_PALETTE.includes(data.color)) {
+                            selectedColor = data.color;
+                        }
+                        persistProfile();
+                        updateProfileInputs();
                         return;
                     }
 
@@ -1365,7 +1505,32 @@
             // Default: try to enable online mode if /ws is available.
             setOnlineUiEnabled(false);
             setOnlineStatus('');
+            setRoomLinkUi();
+            renderColorSwatches();
+            updateProfileInputs();
             connectOnline();
+
+            if (playerNameInput) {
+                playerNameInput.addEventListener('change', (e) => {
+                    const value = String(e.target.value || '').trim();
+                    playerName = value || playerName;
+                    persistProfile();
+                    if (onlineMode) wsSend({ type: 'profile', name: playerName, color: selectedColor });
+                });
+            }
+
+            if (copyRoomLinkButton) {
+                copyRoomLinkButton.addEventListener('click', async () => {
+                    if (!roomId) return;
+                    const url = `${location.origin}/r/${roomId}`;
+                    try {
+                        await navigator.clipboard.writeText(url);
+                        setOnlineStatus('Room link copied.');
+                    } catch (_) {
+                        setOnlineStatus('Copy failed. You can select the link manually.');
+                    }
+                });
+            }
 
             function maybeSendOnlineConfig() {
                 if (!onlineMode) return;

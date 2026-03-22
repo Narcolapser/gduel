@@ -117,17 +117,24 @@
         }
 
         .color-picker {
-            display: flex;
-            align-items: center;
-            gap: 12px;
+            display: grid;
+            grid-template-columns: repeat(8, minmax(0, 1fr));
+            gap: 8px;
+            margin-top: 6px;
         }
 
-        input[type="color"] {
-            width: 56px;
-            height: 40px;
-            padding: 0;
-            border: none;
-            background: transparent;
+        .color-swatch {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 10px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: transform 0.15s ease, border-color 0.15s ease;
+        }
+
+        .color-swatch.is-selected {
+            border-color: var(--text);
+            transform: scale(1.04);
         }
 
         .color-note {
@@ -171,6 +178,12 @@
             border: 1px solid var(--border);
         }
 
+        .status {
+            color: var(--muted);
+            font-size: 0.85rem;
+            min-height: 1.2em;
+        }
+
         .card {
             padding: 28px;
             border-radius: 20px;
@@ -181,27 +194,6 @@
             flex-direction: column;
             gap: 18px;
             animation: floatIn 0.9s ease 0.1s both;
-        }
-
-        .room-link {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            background: rgba(4, 6, 12, 0.75);
-            border-radius: 14px;
-            padding: 16px;
-            border: 1px dashed rgba(255, 255, 255, 0.2);
-        }
-
-        .link-text {
-            font-size: 0.9rem;
-            word-break: break-all;
-        }
-
-        .status {
-            color: var(--muted);
-            font-size: 0.85rem;
-            min-height: 1.2em;
         }
 
         @keyframes floatIn {
@@ -236,10 +228,8 @@
 
                 <div class="input-row">
                     <div class="label">Preferred Color</div>
-                    <div class="color-picker">
-                        <input id="playerColor" type="color" value="#00d9ff" aria-label="Pick your color" />
-                        <div class="color-note">Used for your ship HUD and trails.</div>
-                    </div>
+                    <div id="colorPicker" class="color-picker" aria-label="Pick your color"></div>
+                    <div class="color-note">Used for your ship HUD and trails.</div>
                 </div>
 
                 <div class="cta">
@@ -250,29 +240,67 @@
         </section>
 
         <aside class="card">
-            <div class="label">Share Link</div>
-            <div id="roomLink" class="room-link">
-                <div class="link-text">Room link will appear here after creation.</div>
-            </div>
-            <div class="cta">
-                <button id="copyLink" class="btn btn-ghost" disabled>Copy Link</button>
-                <button id="enterRoom" class="btn btn-ghost" disabled>Enter Room</button>
-            </div>
-            <div class="status">Invite friends with the same URL. Each room supports up to 8 pilots.</div>
+            <div class="label">How It Works</div>
+            <div class="status">Create a room and you will jump into the match screen as host. Use the in-game options screen to copy the invite link.</div>
+            <div class="status">Each room supports up to 8 pilots.</div>
         </aside>
     </div>
 
     <script>
         const nameInput = document.getElementById('playerName');
-        const colorInput = document.getElementById('playerColor');
+        const colorPicker = document.getElementById('colorPicker');
         const createButton = document.getElementById('createRoom');
         const statusEl = document.getElementById('status');
-        const roomLinkEl = document.getElementById('roomLink');
-        const copyButton = document.getElementById('copyLink');
-        const enterButton = document.getElementById('enterRoom');
+
+        const COLOR_PALETTE = [
+            '#00d9ff',
+            '#ff6b35',
+            '#ffd166',
+            '#06d6a0',
+            '#8ecae6',
+            '#b5179e',
+            '#f72585',
+            '#3a86ff',
+            '#8338ec',
+            '#ffbe0b',
+            '#fb5607',
+            '#ff006e',
+            '#3a0ca3',
+            '#4cc9f0',
+            '#2ec4b6',
+            '#a7c957',
+        ];
+
+        let selectedColor = COLOR_PALETTE[0];
 
         function setStatus(message) {
             statusEl.textContent = message || '';
+        }
+
+        function renderColorPicker() {
+            if (!colorPicker) return;
+            colorPicker.innerHTML = '';
+            COLOR_PALETTE.forEach((color) => {
+                const swatch = document.createElement('button');
+                swatch.type = 'button';
+                swatch.className = 'color-swatch';
+                swatch.style.background = color;
+                swatch.dataset.color = color;
+                swatch.setAttribute('aria-label', `Select ${color}`);
+                swatch.addEventListener('click', () => {
+                    selectedColor = color;
+                    updateSwatchSelection();
+                });
+                colorPicker.appendChild(swatch);
+            });
+            updateSwatchSelection();
+        }
+
+        function updateSwatchSelection() {
+            if (!colorPicker) return;
+            [...colorPicker.querySelectorAll('.color-swatch')].forEach((el) => {
+                el.classList.toggle('is-selected', el.dataset.color === selectedColor);
+            });
         }
 
         function loadProfile() {
@@ -280,15 +308,16 @@
                 const storedName = localStorage.getItem('gduel.playerName');
                 const storedColor = localStorage.getItem('gduel.playerColor');
                 if (storedName) nameInput.value = storedName;
-                if (storedColor) colorInput.value = storedColor;
+                if (storedColor && COLOR_PALETTE.includes(storedColor)) selectedColor = storedColor;
             } catch (_) {
                 // Ignore storage failures
             }
+            renderColorPicker();
         }
 
         function saveProfile() {
             const name = (nameInput.value || '').trim() || 'Pilot';
-            const color = colorInput.value || '#00d9ff';
+            const color = COLOR_PALETTE.includes(selectedColor) ? selectedColor : COLOR_PALETTE[0];
             try {
                 localStorage.setItem('gduel.playerName', name);
                 localStorage.setItem('gduel.playerColor', color);
@@ -296,19 +325,6 @@
                 // Ignore storage failures
             }
             return { name, color };
-        }
-
-        function setRoomLink(url) {
-            roomLinkEl.innerHTML = '';
-            const link = document.createElement('div');
-            link.className = 'link-text';
-            link.textContent = url;
-            roomLinkEl.appendChild(link);
-
-            copyButton.disabled = false;
-            enterButton.disabled = false;
-            copyButton.dataset.link = url;
-            enterButton.dataset.link = url;
         }
 
         createButton.addEventListener('click', async () => {
@@ -326,29 +342,13 @@
                 if (!res.ok) throw new Error('Failed to create room');
                 const data = await res.json();
                 const roomUrl = data.roomUrl ? `${location.origin}${data.roomUrl}` : location.origin;
-                setRoomLink(roomUrl);
-                setStatus(`Room ready for ${profile.name}. Share the link or jump in.`);
+                setStatus(`Room ready for ${profile.name}. Entering...`);
+                location.href = roomUrl;
             } catch (err) {
                 setStatus('Could not create room. Please try again.');
             } finally {
                 createButton.disabled = false;
             }
-        });
-
-        copyButton.addEventListener('click', async () => {
-            const link = copyButton.dataset.link;
-            if (!link) return;
-            try {
-                await navigator.clipboard.writeText(link);
-                setStatus('Link copied to clipboard.');
-            } catch (_) {
-                setStatus('Copy failed. You can select the link manually.');
-            }
-        });
-
-        enterButton.addEventListener('click', () => {
-            const link = enterButton.dataset.link;
-            if (link) location.href = link;
         });
 
         loadProfile();
