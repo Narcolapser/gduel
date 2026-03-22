@@ -85,7 +85,7 @@ export function createMatch({
     const inputKeys = onlineControls
       ? pseudoInputKeys(playerIndex)
       : playerIndex === 1
-        ? { thrust: 'w', left: 'a', right: 'd', fire: 's' }
+        ? { thrust: 'w', left: 'a', right: 'd', fire: ' ' }
         : { thrust: 'arrowup', left: 'arrowleft', right: 'arrowright', fire: 'arrowdown' };
 
     const shipId = spawnShip(world, {

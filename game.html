@@ -392,6 +392,34 @@
             color: #ff0000;
         }
 
+        .bottom-hud {
+            width: clamp(350px, 95vw, 950px);
+            margin: 14px auto 0;
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.15);
+        }
+
+        .bottom-hud-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: center;
+            min-width: 140px;
+        }
+
+        .bottom-hud-label {
+            font-size: clamp(0.6rem, 1.4vw, 0.8rem);
+            color: rgba(255, 255, 255, 0.7);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
         .fuel-display {
             width: 30px;
             height: 400px;
@@ -478,7 +506,6 @@
     <h1>Gravity Duel</h1>
     <div id="game-ui-wrapper">
         <div id="player1-ui" class="player-ui">
-            <span id="score-p1" class="score-display">0</span>
             <div id="ammo-display-p1" class="ammo-display">
                 <div id="missile-icons-p1" class="missile-icons"></div>
             </div>
@@ -677,19 +704,24 @@
             </div>
         </div>
         <div id="player2-ui" class="player-ui">
-            <span id="score-p2" class="score-display">0</span>
             <div id="ammo-display-p2" class="ammo-display">
                 <div id="missile-icons-p2" class="missile-icons"></div>
             </div>
             <div id="fuel-display-p2" class="fuel-display"></div>
         </div>
     </div>
+    <div id="bottomHud" class="bottom-hud">
+        <div id="hud-item-p1" class="bottom-hud-item">
+            <div id="hud-label-p1" class="bottom-hud-label">Score</div>
+            <div id="score-p1" class="score-display">0</div>
+        </div>
+        <div id="hud-item-p2" class="bottom-hud-item">
+            <div id="hud-label-p2" class="bottom-hud-label">Score</div>
+            <div id="score-p2" class="score-display">0</div>
+        </div>
+    </div>
     <div class="instructions">
-        Player 1 (Green): W, A, D Keys to move, S to shoot.
-        <br>
-        Player 2 (Red): Arrow Keys to move, Down Arrow to shoot.
-        <br>
-        Press Y to pause/resume. Press N to quit.
+        Use WASD to move and Space to shoot. Press Y to pause/resume. Press N to quit.
     </div>
 
     <script type="module">
@@ -729,6 +761,10 @@
             const pauseButtonContainer = document.getElementById('pause-button-container');
             const scoreP1 = document.getElementById('score-p1');
             const scoreP2 = document.getElementById('score-p2');
+            const hudItemP1 = document.getElementById('hud-item-p1');
+            const hudItemP2 = document.getElementById('hud-item-p2');
+            const hudLabelP1 = document.getElementById('hud-label-p1');
+            const hudLabelP2 = document.getElementById('hud-label-p2');
             const gameContainer = document.getElementById('gameContainer');
             const gameSpeedSlider = document.getElementById('gameSpeedSlider');
             const gameSpeedValue = document.getElementById('gameSpeedValue');
@@ -953,8 +989,48 @@
                 }
 
                 const snap = getUiSnapshot(match.world);
-                if (onlineMode && myPlayerIndex != null) updateUi(document, snap, { activePlayerIndex: myPlayerIndex });
-                else updateUi(document, snap);
+                if (onlineMode && myPlayerIndex != null) syncHud(snap, { activePlayerIndex: myPlayerIndex });
+                else syncHud(snap);
+            }
+
+            function updateBottomHud(snapshot) {
+                if (!snapshot || !Array.isArray(snapshot.ships)) return;
+
+                const statsSnap = gameMode === 'stock' && match ? getStatsSnapshot(match.world) : null;
+                const statsByPlayer = new Map();
+                if (statsSnap && Array.isArray(statsSnap.ships)) {
+                    statsSnap.ships.forEach((s) => statsByPlayer.set(s.playerIndex, s));
+                }
+
+                const updateSlot = (playerIndex, labelEl, valueEl, itemEl) => {
+                    const ship = snapshot.ships.find((s) => s.playerIndex === playerIndex);
+                    if (!ship) {
+                        if (itemEl) itemEl.style.display = 'none';
+                        return;
+                    }
+                    if (itemEl) itemEl.style.display = 'flex';
+
+                    if (gameMode === 'stock') {
+                        const stats = statsByPlayer.get(playerIndex);
+                        const deaths = stats?.deaths ?? 0;
+                        const lives = Math.max(0, stockLives - deaths);
+                        if (labelEl) labelEl.textContent = 'Lives';
+                        if (valueEl) valueEl.textContent = String(lives);
+                    } else {
+                        if (labelEl) labelEl.textContent = 'Score';
+                        if (valueEl) valueEl.textContent = String(ship.score ?? 0);
+                    }
+
+                    if (valueEl && ship.color) valueEl.style.color = ship.color;
+                };
+
+                updateSlot(1, hudLabelP1, scoreP1, hudItemP1);
+                updateSlot(2, hudLabelP2, scoreP2, hudItemP2);
+            }
+
+            function syncHud(snapshot, { activePlayerIndex = null } = {}) {
+                updateUi(document, snapshot, { activePlayerIndex });
+                updateBottomHud(snapshot);
             }
 
             function updateProfileInputs() {
@@ -1001,14 +1077,14 @@
             }
 
             function onlineAllowedKeys() {
-                return new Set(['w', 'a', 'd', 's']);
+                return new Set(['w', 'a', 'd', ' ']);
             }
 
             function actionForKey(k) {
                 if (k === 'w') return 'thrust';
                 if (k === 'a') return 'left';
                 if (k === 'd') return 'right';
-                if (k === 's') return 'fire';
+                if (k === ' ') return 'fire';
                 return null;
             }
 
@@ -1111,6 +1187,11 @@
                 } catch (_) {
                     // Ignore storage failures
                 }
+                if (match) {
+                    const snap = getUiSnapshot(match.world);
+                    if (onlineMode && myPlayerIndex != null) syncHud(snap, { activePlayerIndex: myPlayerIndex });
+                    else syncHud(snap);
+                }
             }
 
             function setMap(id) {
@@ -1207,6 +1288,11 @@
                     localStorage.setItem('gduel.stockLives', String(stockLives));
                 } catch (_) {
                     // Ignore storage failures
+                }
+                if (gameMode === 'stock' && match) {
+                    const snap = getUiSnapshot(match.world);
+                    if (onlineMode && myPlayerIndex != null) syncHud(snap, { activePlayerIndex: myPlayerIndex });
+                    else syncHud(snap);
                 }
             }
 
@@ -1331,8 +1417,8 @@
                     applyMaxShotsToMatch();
                     if (match) {
                         const snap = getUiSnapshot(match.world);
-                        if (onlineMode && myPlayerIndex != null) updateUi(document, snap, { activePlayerIndex: myPlayerIndex });
-                        else updateUi(document, snap);
+                        if (onlineMode && myPlayerIndex != null) syncHud(snap, { activePlayerIndex: myPlayerIndex });
+                        else syncHud(snap);
                     }
                 });
             }
@@ -1456,8 +1542,8 @@
                     }
                 );
                 const snap = getUiSnapshot(match.world);
-                if (onlineMode && myPlayerIndex != null) updateUi(document, snap, { activePlayerIndex: myPlayerIndex });
-                else updateUi(document, snap);
+                if (onlineMode && myPlayerIndex != null) syncHud(snap, { activePlayerIndex: myPlayerIndex });
+                else syncHud(snap);
             }
 
             function getStatsForMatch() {
@@ -1589,8 +1675,8 @@
                 }
 
                 const snap = getUiSnapshot(match.world);
-                if (onlineMode && myPlayerIndex != null) updateUi(document, snap, { activePlayerIndex: myPlayerIndex });
-                else updateUi(document, snap);
+                if (onlineMode && myPlayerIndex != null) syncHud(snap, { activePlayerIndex: myPlayerIndex });
+                else syncHud(snap);
             }
 
             function handleDisconnectVictory(winnerIndex) {
@@ -1616,8 +1702,8 @@
                         }
                     );
                     const snap = getUiSnapshot(match.world);
-                    if (onlineMode && myPlayerIndex != null) updateUi(document, snap, { activePlayerIndex: myPlayerIndex });
-                    else updateUi(document, snap);
+                    if (onlineMode && myPlayerIndex != null) syncHud(snap, { activePlayerIndex: myPlayerIndex });
+                    else syncHud(snap);
                 }
 
                 const label = winnerIndex && winnerIndex === myPlayerIndex ? 'You' : `Player ${winnerIndex}`;
@@ -1666,8 +1752,8 @@
                 );
                 {
                     const snap = getUiSnapshot(match.world);
-                    if (onlineMode && myPlayerIndex != null) updateUi(document, snap, { activePlayerIndex: myPlayerIndex });
-                    else updateUi(document, snap);
+                    if (onlineMode && myPlayerIndex != null) syncHud(snap, { activePlayerIndex: myPlayerIndex });
+                    else syncHud(snap);
                 }
             }
 
@@ -1722,8 +1808,8 @@
                 );
                 {
                     const snap = getUiSnapshot(match.world);
-                    if (onlineMode && myPlayerIndex != null) updateUi(document, snap, { activePlayerIndex: myPlayerIndex });
-                    else updateUi(document, snap);
+                    if (onlineMode && myPlayerIndex != null) syncHud(snap, { activePlayerIndex: myPlayerIndex });
+                    else syncHud(snap);
                 }
 
                 showMessageBox('start', "Welcome to Gravity Duel! Click \"Ready\" to begin.");
@@ -1794,7 +1880,7 @@
                 );
                 justPressed.clear();
 
-                updateUi(document, getUiSnapshot(match.world));
+                syncHud(getUiSnapshot(match.world));
 
                 const outcome = resolveOutcome(result);
                 if (outcome) {
@@ -2034,7 +2120,7 @@
                             }
                         );
 
-                        updateUi(document, getUiSnapshot(match.world), { activePlayerIndex: myPlayerIndex });
+                        syncHud(getUiSnapshot(match.world), { activePlayerIndex: myPlayerIndex });
 
                         const outcome = resolveOutcome(result);
                         if (outcome) {
