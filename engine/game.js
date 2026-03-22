@@ -31,6 +31,7 @@ export function createMatch({
   maxMissiles = SHIP.maxMissiles,
   mapId = 'classic',
   playerOrder = null,
+  playerColors = null,
   onlineControls = false,
 }) {
   const world = createWorld({ canvas, ctx, document });
@@ -61,6 +62,15 @@ export function createMatch({
   const seatCount = order.length;
 
   const shipIds = [];
+  function resolvePlayerColor(playerIndex) {
+    if (playerColors && typeof playerColors === 'object') {
+      const key = String(playerIndex);
+      const color = playerColors[key] ?? playerColors[playerIndex];
+      if (typeof color === 'string' && color.trim().length > 0) return color;
+    }
+    return DEFAULT_PLAYER_COLORS[(playerIndex - 1) % DEFAULT_PLAYER_COLORS.length];
+  }
+
   for (let seatIndex = 0; seatIndex < order.length; seatIndex++) {
     const playerIndex = order[seatIndex];
     const theta = Math.PI + (seatIndex * (Math.PI * 2)) / seatCount;
@@ -80,7 +90,7 @@ export function createMatch({
 
     const shipId = spawnShip(world, {
       playerIndex,
-      color: DEFAULT_PLAYER_COLORS[(playerIndex - 1) % DEFAULT_PLAYER_COLORS.length],
+      color: resolvePlayerColor(playerIndex),
       x,
       y,
       vx,

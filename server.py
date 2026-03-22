@@ -1,7 +1,9 @@
 import asyncio
 import json
 import os
+import secrets
 import sys
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -11,6 +13,7 @@ from aiohttp import WSMsgType, web
 TICK_MS = 1000 / 60
 TICK_S = TICK_MS / 1000
 MAX_PLAYERS = 8
+ROOM_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{6,16}$")
 
 
 def _json_dumps(obj: Any) -> str:
@@ -48,6 +51,7 @@ def normalize_key(k: Any) -> str:
 VALID_ACTIONS = {"thrust", "left", "right", "fire"}
 
 
+
 @dataclass
 class PlayerConn:
 	ws: web.WebSocketResponse
@@ -55,6 +59,8 @@ class PlayerConn:
 	ready: bool = False
 	actions: dict[str, bool] = field(default_factory=dict)
 	pending_just_pressed_actions: set[str] = field(default_factory=set)
+	name: str | None = None
+	color: str | None = None
 
 	def set_action(self, action: str, down: bool) -> None:
 		if action not in VALID_ACTIONS:
@@ -111,7 +117,15 @@ class Room:
 				"connected": self.connected_count(),
 				"readyCount": self.ready_count(),
 				"readyThreshold": 0.75,
-				"players": [{"playerIndex": p.player_index, "ready": p.ready} for p in self.players()],
+				"players": [
+					{
+						"playerIndex": p.player_index,
+						"ready": p.ready,
+						"name": p.name,
+						"color": p.color,
+					}
+					for p in self.players()
+				],
 				"started": self.started,
 			}
 		)
@@ -143,6 +157,11 @@ class Room:
 
 		self.started = True
 		player_order = [p.player_index for p in self.players()]
+		player_colors = {
+			str(p.player_index): p.color
+			for p in self.players()
+			if isinstance(p.color, str) and p.color
+		}
 		await self.broadcast(
 			{
 				"type": "start",
@@ -157,6 +176,7 @@ class Room:
 				},
 				"tickMs": TICK_MS,
 				"playerOrder": player_order,
+				"playerColors": player_colors,
 			}
 		)
 
@@ -206,10 +226,57 @@ class Room:
 				await asyncio.sleep(delay)
 
 
-room = Room()
+rooms: dict[str, Room] = {}
+
+
+def sanitize_color(value: Any) -> str | None:
+	if not isinstance(value, str):
+		return None
+	color = value.strip()
+	if re.fullmatch(r"#[0-9a-fA-F]{6}", color):
+		return color.lower()
+	if re.fullmatch(r"#[0-9a-fA-F]{3}", color):
+		return color.lower()
+	return None
+
+
+def sanitize_name(value: Any) -> str | None:
+	if not isinstance(value, str):
+		return None
+	name = value.strip()
+	if not name:
+		return None
+	return name[:24]
+
+
+def normalize_room_id(value: Any) -> str | None:
+	if not isinstance(value, str):
+		return None
+	room_id = value.strip()
+	if not ROOM_ID_RE.fullmatch(room_id):
+		return None
+	return room_id
+
+
+def get_room(room_id: str) -> Room:
+	room = rooms.get(room_id)
+	if room is None:
+		room = Room()
+		rooms[room_id] = room
+	return room
+
+
+def generate_room_id() -> str:
+	for _ in range(10):
+		room_id = secrets.token_hex(4)
+		if room_id not in rooms:
+			return room_id
+	return secrets.token_hex(6)
 
 
 async def ws_handler(request: web.Request) -> web.WebSocketResponse:
+	room_id = normalize_room_id(request.match_info.get("room_id")) or "lobby"
+	room = get_room(room_id)
 	ws = web.WebSocketResponse(heartbeat=20)
 	await ws.prepare(request)
 
@@ -238,6 +305,12 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 					continue
 
 				mtype = data.get("type")
+
+				if mtype == "profile":
+					player.name = sanitize_name(data.get("name"))
+					player.color = sanitize_color(data.get("color"))
+					await room.broadcast_status()
+					continue
 
 				if mtype == "ready":
 					player.ready = True
@@ -293,14 +366,53 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 		room.players_by_index.pop(player.player_index, None)
 		await room.stop()
 		await room.broadcast_status()
+		if room.connected_count() == 0 and room_id != "lobby":
+			rooms.pop(room_id, None)
 
 	return ws
 
 
 def create_app(static_dir: str) -> web.Application:
 	app = web.Application()
+	static_root = os.path.abspath(static_dir)
+
+	async def index_handler(_: web.Request) -> web.FileResponse:
+		path = os.path.join(static_dir, "index.html")
+		return web.FileResponse(path)
+
+	async def room_handler(request: web.Request) -> web.FileResponse:
+		path = os.path.join(static_dir, "game.html")
+		return web.FileResponse(path)
+
+	async def create_room_handler(_: web.Request) -> web.Response:
+		room_id = generate_room_id()
+		rooms[room_id] = Room()
+		payload = {"roomId": room_id, "roomUrl": f"/r/{room_id}"}
+		return web.json_response(payload, dumps=_json_dumps)
+
+	def resolve_static_path(rel_path: str) -> str | None:
+		rel_path = rel_path.lstrip("/")
+		if not rel_path:
+			return None
+		safe_path = os.path.normpath(os.path.join(static_root, rel_path))
+		if not safe_path.startswith(static_root + os.sep):
+			return None
+		if not os.path.isfile(safe_path):
+			return None
+		return safe_path
+
+	async def static_file_handler(request: web.Request) -> web.StreamResponse:
+		path = resolve_static_path(request.match_info.get("path", ""))
+		if path is None:
+			raise web.HTTPNotFound()
+		return web.FileResponse(path)
+
+	app.router.add_get("/", index_handler)
+	app.router.add_get("/r/{room_id}", room_handler)
+	app.router.add_post("/api/rooms", create_room_handler)
 	app.router.add_get("/ws", ws_handler)
-	app.router.add_static("/", static_dir, show_index=True)
+	app.router.add_get("/ws/{room_id}", ws_handler)
+	app.router.add_get("/{path:.*}", static_file_handler)
 	return app
 
 

@@ -500,6 +500,7 @@
             let localInputDown = {};
             let onlineStarted = false;
             let onlinePlayerOrder = null;
+            let onlinePlayerColors = null;
 
             let player1Ready = false;
             let player2Ready = false;
@@ -529,8 +530,50 @@
                 onlineStatus.textContent = text;
             }
 
+            function randomColorHex() {
+                const n = Math.floor(Math.random() * 0xffffff);
+                return `#${n.toString(16).padStart(6, '0')}`;
+            }
+
+            function getStoredProfile() {
+                let name = null;
+                let color = null;
+                try {
+                    name = localStorage.getItem('gduel.playerName');
+                    color = localStorage.getItem('gduel.playerColor');
+                } catch (_) {
+                    // Ignore storage failures
+                }
+
+                if (!name || !name.trim()) {
+                    name = `Pilot ${Math.floor(100 + Math.random() * 900)}`;
+                }
+                if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) {
+                    color = randomColorHex();
+                }
+
+                try {
+                    localStorage.setItem('gduel.playerName', name);
+                    localStorage.setItem('gduel.playerColor', color);
+                } catch (_) {
+                    // Ignore storage failures
+                }
+
+                return { name, color };
+            }
+
+            function getRoomIdFromPath() {
+                const parts = location.pathname.split('/').filter(Boolean);
+                if (parts.length >= 2 && parts[0] === 'r') return parts[1];
+                return null;
+            }
+
+            const roomId = getRoomIdFromPath();
+            const profile = getStoredProfile();
+
             function wsUrl() {
                 const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+                if (roomId) return `${proto}//${location.host}/ws/${roomId}`;
                 return `${proto}//${location.host}/ws`;
             }
 
@@ -872,6 +915,7 @@
                         maxMissiles: maxShots,
                         mapId,
                         playerOrder: onlinePlayerOrder,
+                        playerColors: onlinePlayerColors,
                         onlineControls: true,
                     });
                 } else {
@@ -941,6 +985,7 @@
                             maxMissiles: maxShots,
                             mapId,
                             playerOrder: onlinePlayerOrder,
+                            playerColors: onlinePlayerColors,
                             onlineControls: true,
                         });
                     } else {
@@ -1178,11 +1223,13 @@
                     onlineMode = true;
                     onlineStarted = false;
                     onlinePlayerOrder = null;
+                    onlinePlayerColors = null;
                     setOnlineUiEnabled(true);
                     setOnlineStatus('Connected. Waiting for assignment…');
                     showMessageBox('start', 'Online: click "Ready" when you are set.');
                     applyOnlineUiVisibility();
                     setOnlineControlsEnabled();
+                    wsSend({ type: 'profile', name: profile.name, color: profile.color });
                 });
 
                 ws.addEventListener('message', (ev) => {
@@ -1238,6 +1285,7 @@
                     if (data.type === 'start') {
                         onlineStarted = true;
                         onlinePlayerOrder = Array.isArray(data.playerOrder) ? data.playerOrder : null;
+                        onlinePlayerColors = data.playerColors && typeof data.playerColors === 'object' ? data.playerColors : null;
                         applyOnlineConfig(data.config);
 
                         // Online mode: all connected users are humans.
@@ -1306,6 +1354,7 @@
                     onlineMode = false;
                     onlineStarted = false;
                     onlinePlayerOrder = null;
+                    onlinePlayerColors = null;
                     setOnlineUiEnabled(false);
                     setOnlineControlsEnabled();
                     applyOnlineUiVisibility();

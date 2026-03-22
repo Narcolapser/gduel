@@ -3,178 +3,355 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gravity Duel</title>
-    <!-- Using a retro-style font -->
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <title>Gravity Duel Lobby</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #0a0f1f;
+            --bg-2: #0b1638;
+            --card: rgba(10, 14, 26, 0.85);
+            --accent: #ffb703;
+            --accent-2: #00d9ff;
+            --text: #f7f6f2;
+            --muted: #9aa3b2;
+            --border: rgba(247, 246, 242, 0.2);
+            --glow: rgba(0, 217, 255, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            /* Dark space theme */
-            background-color: #020826;
-            color: #fff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            height: 100vh;
             margin: 0;
-            font-family: 'Press Start 2P', cursive;
-            text-align: center;
-            overflow: hidden;
-            gap: 0;
-        }
-
-        .game-frame {
-            display: none;
-            width: 100vw;
-            height: 100vh;
-            border: 0;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .cover {
-            position: relative;
-            width: min(90vw, 900px);
-            aspect-ratio: 16 / 9;
+            min-height: 100vh;
             display: flex;
-            justify-content: center;
             align-items: center;
-            cursor: pointer;
-            user-select: none;
-            outline: none;
-        }
-
-        /* Styles for the Title Image */
-        .title-image {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            box-shadow: 0 0 10px rgba(171, 73, 227, 0.7), 0 0 30px rgba(171, 73, 227, 0.5);
-            border-radius: 8px;
-            animation: pulseGlow 3s ease-in-out infinite alternate;
-            background-color: rgba(0, 0, 0, 0.15);
-        }
-
-        .continue-text {
-            position: absolute;
-            bottom: 1.25rem;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 0.75rem 1rem;
-            border: 2px solid #fff;
-            border-radius: 6px;
-            background-color: rgba(0, 0, 0, 0.55);
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-            font-size: clamp(0.8rem, 2vw, 1.2rem);
-            letter-spacing: 0.02em;
-            text-transform: lowercase;
-            animation: continuePulse 1.2s ease-in-out infinite alternate;
-            pointer-events: none;
-            white-space: nowrap;
-        }
-
-        .version-text {
-            position: absolute;
-            top: 0.9rem;
-            right: 0.9rem;
-            padding: 0.5rem 0.75rem;
-            border: 2px solid #fff;
-            border-radius: 6px;
-            background-color: rgba(0, 0, 0, 0.55);
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
-            font-size: clamp(0.65rem, 1.6vw, 0.85rem);
-            letter-spacing: 0.02em;
-            text-transform: lowercase;
-            pointer-events: none;
-            white-space: nowrap;
-        }
-
-        @keyframes continuePulse {
-            0% { opacity: 0.65; }
-            100% { opacity: 1; }
-        }
-
-        /* Pulsing glow animation for the image container */
-        @keyframes pulseGlow {
-            0% {
-                box-shadow: 0 0 10px rgba(171, 73, 227, 0.7), 0 0 30px rgba(171, 73, 227, 0.5);
-            }
-            100% {
-                box-shadow: 0 0 15px #7904C2, 0 0 45px #AB49E3, 0 0 70px #EECFFF;
-            }
-        }
-
-        .sr-only {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
+            justify-content: center;
+            color: var(--text);
+            font-family: 'IBM Plex Mono', monospace;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(0, 217, 255, 0.12), transparent 40%),
+                radial-gradient(circle at 80% 10%, rgba(255, 183, 3, 0.15), transparent 35%),
+                linear-gradient(135deg, var(--bg), var(--bg-2));
             overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border: 0;
+            padding: 24px;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+            background-size: 120px 120px;
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .layout {
+            position: relative;
+            z-index: 1;
+            width: min(960px, 100%);
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+            gap: 32px;
+            align-items: stretch;
+        }
+
+        .hero {
+            padding: 36px;
+            border-radius: 24px;
+            background: linear-gradient(160deg, rgba(15, 24, 46, 0.95), rgba(9, 11, 20, 0.95));
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 60px rgba(4, 8, 20, 0.45);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            animation: floatIn 0.8s ease;
+        }
+
+        .title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(2.8rem, 6vw, 4.8rem);
+            letter-spacing: 0.08em;
+            margin: 0;
+        }
+
+        .subtitle {
+            margin: 0;
+            font-size: 0.95rem;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .details {
+            display: grid;
+            gap: 16px;
+        }
+
+        .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: var(--muted);
+        }
+
+        .input-row {
+            display: grid;
+            gap: 10px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(8, 11, 20, 0.9);
+            color: var(--text);
+            font-size: 1rem;
+        }
+
+        input[type="text"]:focus {
+            outline: 2px solid var(--accent-2);
+            box-shadow: 0 0 12px var(--glow);
+        }
+
+        .color-picker {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        input[type="color"] {
+            width: 56px;
+            height: 40px;
+            padding: 0;
+            border: none;
+            background: transparent;
+        }
+
+        .color-note {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .cta {
+            margin-top: 8px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 14px 20px;
+            border-radius: 999px;
+            border: none;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.9rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #1b1200;
+            box-shadow: 0 12px 24px rgba(255, 183, 3, 0.25);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 18px 30px rgba(255, 183, 3, 0.35);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .card {
+            padding: 28px;
+            border-radius: 20px;
+            background: var(--card);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 40px rgba(4, 8, 18, 0.35);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            animation: floatIn 0.9s ease 0.1s both;
+        }
+
+        .room-link {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: rgba(4, 6, 12, 0.75);
+            border-radius: 14px;
+            padding: 16px;
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+        }
+
+        .link-text {
+            font-size: 0.9rem;
+            word-break: break-all;
+        }
+
+        .status {
+            color: var(--muted);
+            font-size: 0.85rem;
+            min-height: 1.2em;
+        }
+
+        @keyframes floatIn {
+            from {
+                opacity: 0;
+                transform: translateY(18px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const cover = document.getElementById('cover');
-
-            const gameFrame = document.getElementById('gameFrame');
-
-            // Background music lives on the menu page so it can persist.
-            // Playback starts from the user's click (autoplay-safe) and loops.
-            const music = new Audio('./Galactic Standoff.mp3');
-            music.loop = true;
-            music.preload = 'auto';
-            music.volume = 0.6;
-
-            let hasStarted = false;
-
-            function startMusic() {
-                music.play().catch(() => {});
-            }
-
-            function continueToGame() {
-                if (hasStarted) return;
-                hasStarted = true;
-
-                startMusic();
-
-                cover.classList.add('hidden');
-                gameFrame.style.display = 'block';
-                gameFrame.src = 'game.html';
-            }
-
-            cover.addEventListener('click', continueToGame);
-            cover.addEventListener('keydown', (e) => {
-                const k = e.key.toLowerCase();
-                if (k === 'enter' || k === ' ') {
-                    e.preventDefault();
-                    continueToGame();
-                }
-            });
-
-            // Make it obvious it's interactive.
-            cover.focus();
-        });
-    </script>
 </head>
 <body>
-    <div id="cover" class="cover" role="button" tabindex="0" aria-label="Click to continue to Gravity Duel">
-        <span class="sr-only">Click to continue</span>
-        <img 
-            src="/Gravity Duel Art v2.png" 
-            alt="Gravity Duel cover art" 
-            class="title-image"
-            onerror="this.onerror=null; this.src='https://placehold.co/900x506/020826/EECFFF?text=Gravity+Duel+Cover'"
-        >
-        <div class="version-text">version 0.9.1</div>
-        <div class="continue-text">click to continue</div>
+    <div class="layout">
+        <section class="hero">
+            <h1 class="title">Gravity Duel</h1>
+            <p class="subtitle">Set your callsign, lock a color, and spin up a private room. Share the link when you are ready to duel.</p>
+
+            <div class="details">
+                <div class="input-row">
+                    <div class="label">Player Name</div>
+                    <input id="playerName" type="text" placeholder="Nova Strider" maxlength="24" />
+                </div>
+
+                <div class="input-row">
+                    <div class="label">Preferred Color</div>
+                    <div class="color-picker">
+                        <input id="playerColor" type="color" value="#00d9ff" aria-label="Pick your color" />
+                        <div class="color-note">Used for your ship HUD and trails.</div>
+                    </div>
+                </div>
+
+                <div class="cta">
+                    <button id="createRoom" class="btn btn-primary">Create Room</button>
+                </div>
+                <div id="status" class="status"></div>
+            </div>
+        </section>
+
+        <aside class="card">
+            <div class="label">Share Link</div>
+            <div id="roomLink" class="room-link">
+                <div class="link-text">Room link will appear here after creation.</div>
+            </div>
+            <div class="cta">
+                <button id="copyLink" class="btn btn-ghost" disabled>Copy Link</button>
+                <button id="enterRoom" class="btn btn-ghost" disabled>Enter Room</button>
+            </div>
+            <div class="status">Invite friends with the same URL. Each room supports up to 8 pilots.</div>
+        </aside>
     </div>
 
-    <iframe id="gameFrame" class="game-frame" title="Gravity Duel"></iframe>
+    <script>
+        const nameInput = document.getElementById('playerName');
+        const colorInput = document.getElementById('playerColor');
+        const createButton = document.getElementById('createRoom');
+        const statusEl = document.getElementById('status');
+        const roomLinkEl = document.getElementById('roomLink');
+        const copyButton = document.getElementById('copyLink');
+        const enterButton = document.getElementById('enterRoom');
+
+        function setStatus(message) {
+            statusEl.textContent = message || '';
+        }
+
+        function loadProfile() {
+            try {
+                const storedName = localStorage.getItem('gduel.playerName');
+                const storedColor = localStorage.getItem('gduel.playerColor');
+                if (storedName) nameInput.value = storedName;
+                if (storedColor) colorInput.value = storedColor;
+            } catch (_) {
+                // Ignore storage failures
+            }
+        }
+
+        function saveProfile() {
+            const name = (nameInput.value || '').trim() || 'Pilot';
+            const color = colorInput.value || '#00d9ff';
+            try {
+                localStorage.setItem('gduel.playerName', name);
+                localStorage.setItem('gduel.playerColor', color);
+            } catch (_) {
+                // Ignore storage failures
+            }
+            return { name, color };
+        }
+
+        function setRoomLink(url) {
+            roomLinkEl.innerHTML = '';
+            const link = document.createElement('div');
+            link.className = 'link-text';
+            link.textContent = url;
+            roomLinkEl.appendChild(link);
+
+            copyButton.disabled = false;
+            enterButton.disabled = false;
+            copyButton.dataset.link = url;
+            enterButton.dataset.link = url;
+        }
+
+        createButton.addEventListener('click', async () => {
+            setStatus('Creating room...');
+            createButton.disabled = true;
+            const profile = saveProfile();
+
+            try {
+                const res = await fetch('/api/rooms', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({}),
+                });
+
+                if (!res.ok) throw new Error('Failed to create room');
+                const data = await res.json();
+                const roomUrl = data.roomUrl ? `${location.origin}${data.roomUrl}` : location.origin;
+                setRoomLink(roomUrl);
+                setStatus(`Room ready for ${profile.name}. Share the link or jump in.`);
+            } catch (err) {
+                setStatus('Could not create room. Please try again.');
+            } finally {
+                createButton.disabled = false;
+            }
+        });
+
+        copyButton.addEventListener('click', async () => {
+            const link = copyButton.dataset.link;
+            if (!link) return;
+            try {
+                await navigator.clipboard.writeText(link);
+                setStatus('Link copied to clipboard.');
+            } catch (_) {
+                setStatus('Copy failed. You can select the link manually.');
+            }
+        });
+
+        enterButton.addEventListener('click', () => {
+            const link = enterButton.dataset.link;
+            if (link) location.href = link;
+        });
+
+        loadProfile();
+    </script>
 </body>
 </html>
