@@ -737,7 +737,7 @@
             const messageText = document.getElementById('messageText');
             const optionsTabs = document.getElementById('optionsTabs');
             const optionsPanels = document.getElementById('optionsPanels');
-            const tabLobbyButton = document.getElementById('tabLobbyButton');
+                const tabLobbyButton = document.getElementById('tabLobbyButton');
             const tabConfigButton = document.getElementById('tabConfigButton');
             const tabLobbyPanel = document.getElementById('tab-lobby');
             const tabConfigPanel = document.getElementById('tab-config');
@@ -1624,6 +1624,24 @@
                 return null;
             }
 
+            function enforceStockElimination() {
+                if (gameMode !== 'stock' || !match) return;
+                const stats = getStatsForMatch();
+                for (const stat of stats) {
+                    if (stat.deaths < stockLives) continue;
+                    if (!match.world.stores.respawnAtMs.has(stat.id)) {
+                        match.world.stores.respawnAtMs.set(stat.id, Number.POSITIVE_INFINITY);
+                        const v = match.world.stores.velocity.get(stat.id);
+                        if (v) {
+                            v.x = 0;
+                            v.y = 0;
+                        }
+                    } else {
+                        match.world.stores.respawnAtMs.set(stat.id, Number.POSITIVE_INFINITY);
+                    }
+                }
+            }
+
             function endGame(outcome) {
                 isGameRunning = false;
                 cancelAnimationFrame(animationFrameId);
@@ -1881,6 +1899,7 @@
                 justPressed.clear();
 
                 syncHud(getUiSnapshot(match.world));
+                enforceStockElimination();
 
                 const outcome = resolveOutcome(result);
                 if (outcome) {
@@ -2121,6 +2140,7 @@
                         );
 
                         syncHud(getUiSnapshot(match.world), { activePlayerIndex: myPlayerIndex });
+                        enforceStockElimination();
 
                         const outcome = resolveOutcome(result);
                         if (outcome) {
