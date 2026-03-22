@@ -86,6 +86,39 @@
             white-space: pre-wrap;
         }
 
+        .options-tabs {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 6px;
+        }
+
+        .tab-button {
+            padding: 8px 16px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: clamp(0.65rem, 1.4vw, 0.85rem);
+            border: 2px solid #ffffff;
+            border-radius: 6px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: #ffffff;
+            cursor: pointer;
+        }
+
+        .tab-button.is-active {
+            background-color: #ffffff;
+            color: #0d0f12;
+        }
+
+        .tab-panel {
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .tab-panel.is-active {
+            display: flex;
+        }
+
         .menu-options {
             display: flex;
             flex-direction: column;
@@ -111,6 +144,11 @@
             display: flex;
             align-items: center;
             gap: 12px;
+        }
+
+        .menu-option-controls.stack {
+            flex-direction: column;
+            align-items: flex-start;
         }
 
         .menu-slider {
@@ -165,6 +203,44 @@
             line-height: 1.4;
             word-break: break-all;
             color: #ffffff;
+        }
+
+        .pilot-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: min(360px, 75vw);
+        }
+
+        .pilot-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 6px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background-color: rgba(0, 0, 0, 0.35);
+            font-size: clamp(0.6rem, 1.3vw, 0.8rem);
+        }
+
+        .pilot-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pilot-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            background-color: #ffffff;
+        }
+
+        .pilot-status {
+            font-size: clamp(0.55rem, 1.2vw, 0.7rem);
+            opacity: 0.85;
         }
 
         .action-button.small {
@@ -376,124 +452,142 @@
             <canvas id="gameCanvas"></canvas>
             <div id="messageBox">
                 <div id="messageText">Welcome!</div>
-                <div id="menuOptions" class="menu-options">
-                    <div class="menu-option">
-                        <div class="menu-option-label">Pilot Name</div>
-                        <div class="menu-option-controls">
-                            <input
-                                id="playerNameInput"
-                                class="menu-number menu-text-input"
-                                type="text"
-                                maxlength="24"
-                                aria-label="Pilot name"
-                            />
-                        </div>
-                    </div>
-
-                    <div class="menu-option">
-                        <div class="menu-option-label">Ship Color</div>
-                        <div id="colorSwatches" class="color-swatch-grid" aria-label="Ship color"></div>
-                    </div>
-
-                    <div id="roomLinkOption" class="menu-option" style="display: none;">
-                        <div class="menu-option-label">Room Link</div>
-                        <div class="menu-option-controls">
-                            <div id="roomLinkText" class="room-link-text"></div>
-                            <button id="copyRoomLinkButton" class="action-button small">Copy Link</button>
-                        </div>
-                    </div>
-
-                    <div class="menu-option">
-                        <div class="menu-option-label">Game Speed</div>
-                        <div class="menu-option-controls">
-                            <input
-                                id="gameSpeedSlider"
-                                class="menu-slider"
-                                type="range"
-                                min="0.5"
-                                max="4"
-                                step="0.1"
-                                value="1"
-                                aria-label="Game speed"
-                            />
-                            <div id="gameSpeedValue" class="menu-value">1.0x</div>
-                        </div>
-                    </div>
-
-                    <div class="menu-option">
-                        <div class="menu-option-label">Border</div>
-                        <div class="menu-option-controls">
-                            <select id="borderModeSelect" class="menu-number" aria-label="Border mode">
-                                <option value="outerSpace">outer space</option>
-                                <option value="concrete">concrete</option>
-                                <option value="rubber">rubber</option>
-                                <option value="wrap">wrap</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="menu-option">
-                        <div class="menu-option-label">Map</div>
-                        <div class="menu-option-controls">
-                            <select id="mapSelect" class="menu-number" aria-label="Map">
-                                <option value="classic">classic</option>
-                                <option value="earth">earth</option>
-                                <option value="pluto">pluto</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="menu-option">
-                        <div class="menu-option-label">Max Shots</div>
-                        <div class="menu-option-controls">
-                            <input
-                                id="maxShotsInput"
-                                class="menu-number"
-                                type="number"
-                                step="1"
-                                value="3"
-                                aria-label="Max shots"
-                            />
-                        </div>
-                    </div>
-
-                    <div class="menu-option">
-                        <div class="menu-option-label">Objective Score</div>
-                        <div class="menu-option-controls">
-                            <input
-                                id="objectiveScoreInput"
-                                class="menu-number"
-                                type="number"
-                                step="1"
-                                value="5"
-                                aria-label="Objective score"
-                            />
-                        </div>
-                    </div>
-
-                    <div class="menu-option">
-                        <div class="menu-option-label">Missiles die with ship</div>
-                        <div class="menu-option-controls">
-                            <input id="missilesDieWithShipCheckbox" type="checkbox" aria-label="Missiles die with ship" />
-                        </div>
-                    </div>
+                <div id="optionsTabs" class="options-tabs">
+                    <button id="tabLobbyButton" class="tab-button is-active" data-tab="lobby">Lobby</button>
+                    <button id="tabConfigButton" class="tab-button" data-tab="config">Game</button>
                 </div>
-                <div id="ready-button-container" class="ready-button-container">
-                    <div id="online-ready-container" class="player-ready-buttons" style="display: none;">
-                        <div class="ready-label" style="color: #EECFFF;">Online</div>
-                        <button id="readyOnlineButton" class="action-button">Ready</button>
-                        <div id="onlineStatus" class="ready-status">Connecting…</div>
-                    </div>
-                    <div id="local-ready-container" class="ready-button-container" style="margin-top: 0;">
-                        <div class="player-ready-buttons">
-                            <div class="ready-label" style="color: #00ff00;">Player 1</div>
-                            <button id="readyP1Button" class="action-button">Ready Player</button>
-                            <button id="readyBotP1Button" class="action-button">Ready Bot</button>
+                <div id="optionsPanels">
+                    <div id="tab-lobby" class="tab-panel is-active">
+                        <div class="menu-option">
+                            <div class="menu-option-label">Pilot Name</div>
+                            <div class="menu-option-controls">
+                                <input
+                                    id="playerNameInput"
+                                    class="menu-number menu-text-input"
+                                    type="text"
+                                    maxlength="24"
+                                    aria-label="Pilot name"
+                                />
+                            </div>
                         </div>
-                        <div class="player-ready-buttons">
-                            <div class="ready-label" style="color: #ff0000;">Player 2</div>
-                            <button id="readyP2Button" class="action-button">Ready Player</button>
-                            <button id="readyBotP2Button" class="action-button">Ready Bot</button>
+
+                        <div class="menu-option">
+                            <div class="menu-option-label">Ship Color</div>
+                            <div id="colorSwatches" class="color-swatch-grid" aria-label="Ship color"></div>
+                        </div>
+
+                        <div id="roomLinkOption" class="menu-option" style="display: none;">
+                            <div class="menu-option-label">Room Link</div>
+                            <div class="menu-option-controls">
+                                <div id="roomLinkText" class="room-link-text"></div>
+                                <button id="copyRoomLinkButton" class="action-button small">Copy Link</button>
+                            </div>
+                        </div>
+
+                        <div class="menu-option">
+                            <div class="menu-option-label">Pilots</div>
+                            <div class="menu-option-controls stack">
+                                <div id="pilotList" class="pilot-list"></div>
+                            </div>
+                        </div>
+
+                        <div id="ready-button-container" class="ready-button-container">
+                            <div id="online-ready-container" class="player-ready-buttons" style="display: none;">
+                                <div class="ready-label" style="color: #EECFFF;">Online</div>
+                                <button id="readyOnlineButton" class="action-button">Ready</button>
+                                <div id="onlineStatus" class="ready-status">Connecting…</div>
+                            </div>
+                            <div id="local-ready-container" class="ready-button-container" style="margin-top: 0;">
+                                <div class="player-ready-buttons">
+                                    <div class="ready-label" style="color: #00ff00;">Player 1</div>
+                                    <button id="readyP1Button" class="action-button">Ready Player</button>
+                                    <button id="readyBotP1Button" class="action-button">Ready Bot</button>
+                                </div>
+                                <div class="player-ready-buttons">
+                                    <div class="ready-label" style="color: #ff0000;">Player 2</div>
+                                    <button id="readyP2Button" class="action-button">Ready Player</button>
+                                    <button id="readyBotP2Button" class="action-button">Ready Bot</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="tab-config" class="tab-panel">
+                        <div id="menuOptions" class="menu-options">
+                            <div class="menu-option">
+                                <div class="menu-option-label">Game Speed</div>
+                                <div class="menu-option-controls">
+                                    <input
+                                        id="gameSpeedSlider"
+                                        class="menu-slider"
+                                        type="range"
+                                        min="0.5"
+                                        max="4"
+                                        step="0.1"
+                                        value="1"
+                                        aria-label="Game speed"
+                                    />
+                                    <div id="gameSpeedValue" class="menu-value">1.0x</div>
+                                </div>
+                            </div>
+
+                            <div class="menu-option">
+                                <div class="menu-option-label">Border</div>
+                                <div class="menu-option-controls">
+                                    <select id="borderModeSelect" class="menu-number" aria-label="Border mode">
+                                        <option value="outerSpace">outer space</option>
+                                        <option value="concrete">concrete</option>
+                                        <option value="rubber">rubber</option>
+                                        <option value="wrap">wrap</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="menu-option">
+                                <div class="menu-option-label">Map</div>
+                                <div class="menu-option-controls">
+                                    <select id="mapSelect" class="menu-number" aria-label="Map">
+                                        <option value="classic">classic</option>
+                                        <option value="earth">earth</option>
+                                        <option value="pluto">pluto</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="menu-option">
+                                <div class="menu-option-label">Max Shots</div>
+                                <div class="menu-option-controls">
+                                    <input
+                                        id="maxShotsInput"
+                                        class="menu-number"
+                                        type="number"
+                                        step="1"
+                                        value="3"
+                                        aria-label="Max shots"
+                                    />
+                                </div>
+                            </div>
+
+                            <div class="menu-option">
+                                <div class="menu-option-label">Objective Score</div>
+                                <div class="menu-option-controls">
+                                    <input
+                                        id="objectiveScoreInput"
+                                        class="menu-number"
+                                        type="number"
+                                        step="1"
+                                        value="5"
+                                        aria-label="Objective score"
+                                    />
+                                </div>
+                            </div>
+
+                            <div class="menu-option">
+                                <div class="menu-option-label">Missiles die with ship</div>
+                                <div class="menu-option-controls">
+                                    <input id="missilesDieWithShipCheckbox" type="checkbox" aria-label="Missiles die with ship" />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -529,6 +623,12 @@
             const ctx = canvas.getContext('2d');
             const messageBox = document.getElementById('messageBox');
             const messageText = document.getElementById('messageText');
+            const optionsTabs = document.getElementById('optionsTabs');
+            const optionsPanels = document.getElementById('optionsPanels');
+            const tabLobbyButton = document.getElementById('tabLobbyButton');
+            const tabConfigButton = document.getElementById('tabConfigButton');
+            const tabLobbyPanel = document.getElementById('tab-lobby');
+            const tabConfigPanel = document.getElementById('tab-config');
             const readyOnlineButton = document.getElementById('readyOnlineButton');
             const onlineReadyContainer = document.getElementById('online-ready-container');
             const localReadyContainer = document.getElementById('local-ready-container');
@@ -538,6 +638,7 @@
             const roomLinkOption = document.getElementById('roomLinkOption');
             const roomLinkText = document.getElementById('roomLinkText');
             const copyRoomLinkButton = document.getElementById('copyRoomLinkButton');
+            const pilotList = document.getElementById('pilotList');
             const readyP1Button = document.getElementById('readyP1Button');
             const readyBotP1Button = document.getElementById('readyBotP1Button');
             const readyP2Button = document.getElementById('readyP2Button');
@@ -668,6 +769,62 @@
                 if (!roomId || !roomLinkOption || !roomLinkText) return;
                 roomLinkOption.style.display = 'flex';
                 roomLinkText.textContent = `${location.origin}/r/${roomId}`;
+            }
+
+            function setActiveTab(tabName) {
+                const isLobby = tabName === 'lobby';
+                if (tabLobbyButton) tabLobbyButton.classList.toggle('is-active', isLobby);
+                if (tabConfigButton) tabConfigButton.classList.toggle('is-active', !isLobby);
+                if (tabLobbyPanel) tabLobbyPanel.classList.toggle('is-active', isLobby);
+                if (tabConfigPanel) tabConfigPanel.classList.toggle('is-active', !isLobby);
+            }
+
+            function renderPilotList(players) {
+                if (!pilotList) return;
+                pilotList.innerHTML = '';
+
+                if (!onlineMode) {
+                    const row = document.createElement('div');
+                    row.className = 'pilot-row';
+                    row.textContent = 'Local match. Waiting for players.';
+                    pilotList.appendChild(row);
+                    return;
+                }
+
+                if (!Array.isArray(players) || players.length === 0) {
+                    const row = document.createElement('div');
+                    row.className = 'pilot-row';
+                    row.textContent = 'Waiting for pilots to join...';
+                    pilotList.appendChild(row);
+                    return;
+                }
+
+                players.forEach((p) => {
+                    const row = document.createElement('div');
+                    row.className = 'pilot-row';
+
+                    const left = document.createElement('div');
+                    left.className = 'pilot-left';
+
+                    const color = document.createElement('div');
+                    color.className = 'pilot-color';
+                    color.style.backgroundColor = p && p.color ? p.color : '#ffffff';
+
+                    const name = document.createElement('div');
+                    const label = p && p.name ? p.name : `Pilot ${p?.playerIndex ?? '?'}`;
+                    name.textContent = p && p.playerIndex === myPlayerIndex ? `${label} (You)` : label;
+
+                    left.appendChild(color);
+                    left.appendChild(name);
+
+                    const status = document.createElement('div');
+                    status.className = 'pilot-status';
+                    status.textContent = p && p.ready ? 'Ready' : 'Not Ready';
+
+                    row.appendChild(left);
+                    row.appendChild(status);
+                    pilotList.appendChild(row);
+                });
             }
 
             function updateProfileInputs() {
@@ -1156,12 +1313,18 @@
                 if (type === 'start') {
                     readyButtonContainer.style.display = 'flex';
                     pauseButtonContainer.style.display = 'none';
+                    if (optionsTabs) optionsTabs.style.display = 'flex';
+                    if (optionsPanels) optionsPanels.style.display = 'block';
                 } else if (type === 'pause') {
                     readyButtonContainer.style.display = 'none';
                     pauseButtonContainer.style.display = 'flex';
+                    if (optionsTabs) optionsTabs.style.display = 'none';
+                    if (optionsPanels) optionsPanels.style.display = 'none';
                 } else if (type === 'win/loss') {
                     readyButtonContainer.style.display = 'flex';
                     pauseButtonContainer.style.display = 'none';
+                    if (optionsTabs) optionsTabs.style.display = 'flex';
+                    if (optionsPanels) optionsPanels.style.display = 'block';
                 }
             }
             
@@ -1412,6 +1575,8 @@
 
                         if (onlineReadySent) setOnlineStatus(`Ready sent. Waiting… (${readyCount}/${connected}, need ${need})`);
                         else setOnlineStatus(`Ready ${readyCount}/${connected} (need ${need})`);
+
+                        renderPilotList(Array.isArray(data.players) ? data.players : []);
                         return;
                     }
 
@@ -1509,7 +1674,16 @@
             setRoomLinkUi();
             renderColorSwatches();
             updateProfileInputs();
+            renderPilotList([]);
+            setActiveTab('lobby');
             connectOnline();
+
+            if (tabLobbyButton) {
+                tabLobbyButton.addEventListener('click', () => setActiveTab('lobby'));
+            }
+            if (tabConfigButton) {
+                tabConfigButton.addEventListener('click', () => setActiveTab('config'));
+            }
 
             if (playerNameInput) {
                 playerNameInput.addEventListener('change', (e) => {
