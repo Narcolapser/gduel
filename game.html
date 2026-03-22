@@ -671,6 +671,7 @@
             let onlineStarted = false;
             let onlinePlayerOrder = null;
             let onlinePlayerColors = null;
+            let lastRoomPlayers = [];
 
             const COLOR_PALETTE = [
                 '#00d9ff',
@@ -826,6 +827,42 @@
                     row.appendChild(status);
                     pilotList.appendChild(row);
                 });
+            }
+
+            function buildColorsFromPlayers(players) {
+                const nextColors = {};
+                if (!Array.isArray(players)) return nextColors;
+                for (const p of players) {
+                    if (!p || !p.playerIndex) continue;
+                    if (p.color && typeof p.color === 'string') {
+                        nextColors[p.playerIndex] = p.color;
+                    }
+                }
+                return nextColors;
+            }
+
+            function syncPlayerColors(players) {
+                if (!Array.isArray(players)) return;
+
+                const nextColors = {};
+                for (const p of players) {
+                    if (!p || !p.playerIndex) continue;
+                    if (p.color && typeof p.color === 'string') {
+                        nextColors[p.playerIndex] = p.color;
+                    }
+                }
+                if (Object.keys(nextColors).length === 0) return;
+                onlinePlayerColors = nextColors;
+
+                if (!match) return;
+                for (const [id, ship] of match.world.stores.ship) {
+                    const color = nextColors[ship.playerIndex];
+                    if (color) ship.color = color;
+                }
+
+                const snap = getUiSnapshot(match.world);
+                if (onlineMode && myPlayerIndex != null) updateUi(document, snap, { activePlayerIndex: myPlayerIndex });
+                else updateUi(document, snap);
             }
 
             function updateProfileInputs() {
@@ -1551,6 +1588,7 @@
                     if (onlineReadySent) return;
                     onlineReadySent = true;
                     readyOnlineButton.disabled = true;
+                    wsSend({ type: 'profile', name: playerName, color: selectedColor });
                     wsSend({ type: 'ready', config: getOnlineConfigSnapshot() });
                     setOnlineStatus('Ready sent. Waiting for opponent…');
                 });
@@ -1643,6 +1681,8 @@
                         if (onlineReadySent) setOnlineStatus(`Ready sent. Waiting… (${readyCount}/${connected}, need ${need})`);
                         else setOnlineStatus(`Ready ${readyCount}/${connected} (need ${need})`);
 
+                        lastRoomPlayers = Array.isArray(data.players) ? data.players : [];
+                        syncPlayerColors(Array.isArray(data.players) ? data.players : []);
                         renderPilotList(Array.isArray(data.players) ? data.players : []);
                         return;
                     }
@@ -1658,7 +1698,14 @@
                     if (data.type === 'start') {
                         onlineStarted = true;
                         onlinePlayerOrder = Array.isArray(data.playerOrder) ? data.playerOrder : null;
-                        onlinePlayerColors = data.playerColors && typeof data.playerColors === 'object' ? data.playerColors : null;
+                        if (data.playerColors && typeof data.playerColors === 'object') {
+                            onlinePlayerColors = data.playerColors;
+                        } else {
+                            onlinePlayerColors = buildColorsFromPlayers(lastRoomPlayers);
+                        }
+                        if (onlinePlayerColors && myPlayerIndex != null && !onlinePlayerColors[myPlayerIndex]) {
+                            onlinePlayerColors[myPlayerIndex] = selectedColor;
+                        }
                         applyOnlineConfig(data.config);
 
                         // Online mode: all connected users are humans.
