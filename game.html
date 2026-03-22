@@ -617,6 +617,7 @@
         import { createMatch, resetMatch, resizeMatch, setBotEnabled } from './engine/game.js';
         import { getUiSnapshot, stepWorld } from './engine/step.js';
         import { updateUi } from './engine/ui.js';
+        import { cleanupDead, killEntity } from './engine/world.js';
 
         document.addEventListener('DOMContentLoaded', () => {
             const canvas = document.getElementById('gameCanvas');
@@ -1259,6 +1260,72 @@
                 showMessageBox('win/loss', finalMessage);
             }
 
+            function removePlayerShip(playerIndex) {
+                if (!match || playerIndex == null) return;
+                let shipId = null;
+
+                for (const [id, ship] of match.world.stores.ship) {
+                    if (ship && ship.playerIndex === playerIndex) {
+                        shipId = id;
+                        break;
+                    }
+                }
+
+                if (!shipId) return;
+
+                killEntity(match.world, shipId);
+                cleanupDead(match.world);
+
+                if (Array.isArray(match.shipIds)) {
+                    match.shipIds = match.shipIds.filter((id) => id !== shipId);
+                }
+                if (match.ship1Id === shipId) match.ship1Id = null;
+                if (match.ship2Id === shipId) match.ship2Id = null;
+
+                if (Array.isArray(onlinePlayerOrder)) {
+                    onlinePlayerOrder = onlinePlayerOrder.filter((idx) => idx !== playerIndex);
+                }
+                if (onlinePlayerColors && typeof onlinePlayerColors === 'object') {
+                    delete onlinePlayerColors[playerIndex];
+                    delete onlinePlayerColors[String(playerIndex)];
+                }
+
+                const snap = getUiSnapshot(match.world);
+                if (onlineMode && myPlayerIndex != null) updateUi(document, snap, { activePlayerIndex: myPlayerIndex });
+                else updateUi(document, snap);
+            }
+
+            function handleDisconnectVictory(winnerIndex) {
+                isGameRunning = false;
+                isGamePaused = false;
+                onlineStarted = false;
+                cancelAnimationFrame(animationFrameId);
+
+                onlineReadySent = false;
+                if (readyOnlineButton) readyOnlineButton.disabled = false;
+
+                if (match) {
+                    resetGame();
+                    stepWorld(
+                        match.world,
+                        { keys: {}, justPressed: new Set() },
+                        {
+                            dtMs: 0,
+                            planetId: match.planetId,
+                            borderMode,
+                            winningScore: objectiveScore,
+                            missilesDieWithShip,
+                        }
+                    );
+                    const snap = getUiSnapshot(match.world);
+                    if (onlineMode && myPlayerIndex != null) updateUi(document, snap, { activePlayerIndex: myPlayerIndex });
+                    else updateUi(document, snap);
+                }
+
+                const label = winnerIndex && winnerIndex === myPlayerIndex ? 'You' : `Player ${winnerIndex}`;
+                showMessageBox('win/loss', `${label} win by disconnect.`);
+            }
+
             function resizeCanvas() {
                 const gameContainer = document.getElementById('gameContainer');
                 canvas.width = gameContainer.clientWidth;
@@ -1602,6 +1669,17 @@
 
                         recreateMatch();
                         startOnlineGame();
+                        return;
+                    }
+
+                    if (data.type === 'leave') {
+                        removePlayerShip(data.playerIndex);
+                        return;
+                    }
+
+                    if (data.type === 'victory') {
+                        if (!onlineMode) return;
+                        handleDisconnectVictory(data.winnerPlayerIndex);
                         return;
                     }
 

@@ -439,9 +439,29 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 				break
 	finally:
 		# Cleanup.
+		left_index = player.player_index
 		room.players_by_index.pop(player.player_index, None)
-		await room.stop()
-		await room.broadcast_status()
+
+		if room.started:
+			if room.connected_count() == 0:
+				await room.stop()
+			elif room.connected_count() == 1:
+				await room.broadcast({"type": "leave", "playerIndex": left_index})
+				winner = room.players()[0].player_index if room.players_by_index else None
+				await room.broadcast({"type": "victory", "winnerPlayerIndex": winner})
+				await room.stop()
+				for p in room.players():
+					p.ready = False
+					p.actions.clear()
+					p.pending_just_pressed_actions.clear()
+				await room.broadcast_status()
+			else:
+				await room.broadcast({"type": "leave", "playerIndex": left_index})
+				await room.broadcast_status()
+		elif room.connected_count() == 0:
+			await room.stop()
+		else:
+			await room.broadcast_status()
 		if room.connected_count() == 0 and room_id != "lobby":
 			rooms.pop(room_id, None)
 
