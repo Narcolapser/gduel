@@ -153,6 +153,13 @@ class Room:
 			"playerColors": player_colors,
 		}
 
+	def primary_player(self) -> PlayerConn | None:
+		p1 = self.players_by_index.get(1)
+		if p1 and not p1.observer:
+			return p1
+		active = self.active_players()
+		return active[0] if active else None
+
 	async def broadcast(self, obj: Any) -> None:
 		for p in self.players():
 			try:
@@ -388,6 +395,12 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 	await room.broadcast_status()
 	if room.started:
 		await ws_send_json(ws, room.start_payload())
+		primary = room.primary_player()
+		if primary and primary.ws is not ws:
+			await ws_send_json(
+				primary.ws,
+				{"type": "state-request", "targetPlayerIndex": player.player_index},
+			)
 
 	try:
 		async for msg in ws:
@@ -446,6 +459,25 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 					action = normalize_key(data.get("action"))
 					down = bool(data.get("down"))
 					player.set_action(action, down)
+
+				elif mtype == "state":
+					if player.observer:
+						continue
+					primary = room.primary_player()
+					if primary is not None and primary is not player:
+						continue
+					target_index = data.get("targetPlayerIndex")
+					try:
+						target_index = int(target_index)
+					except Exception:
+						continue
+					state = data.get("state")
+					if not isinstance(state, dict):
+						continue
+					target = room.players_by_index.get(target_index)
+					if not target:
+						continue
+					await ws_send_json(target.ws, {"type": "state", "state": state})
 
 				elif mtype == "config":
 					# Only Player 1 can change settings; only before the match starts.
