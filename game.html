@@ -652,6 +652,22 @@
                             </div>
 
                             <div class="menu-option">
+                                <div class="menu-option-label">Extra Bots</div>
+                                <div class="menu-option-controls">
+                                    <input
+                                        id="extraBotsInput"
+                                        class="menu-number"
+                                        type="number"
+                                        min="0"
+                                        max="7"
+                                        step="1"
+                                        value="0"
+                                        aria-label="Extra bots"
+                                    />
+                                </div>
+                            </div>
+
+                            <div class="menu-option">
                                 <div class="menu-option-label">Max Shots</div>
                                 <div class="menu-option-controls">
                                     <input
@@ -804,6 +820,7 @@
             const timedLengthInput = document.getElementById('timedLengthInput');
             const missilesDieWithShipCheckbox = document.getElementById('missilesDieWithShipCheckbox');
             const mapSelect = document.getElementById('mapSelect');
+            const extraBotsInput = document.getElementById('extraBotsInput');
             const victoryPanel = document.getElementById('victoryPanel');
             const victorySummary = document.getElementById('victorySummary');
             const victoryStats = document.getElementById('victoryStats');
@@ -821,6 +838,7 @@
             let onlineStarted = false;
             let onlinePlayerOrder = null;
             let onlinePlayerColors = null;
+            let onlineBotPlayers = new Set();
             let lastRoomPlayers = [];
             let victoryReadyAtMs = 0;
             let isVictoryOpen = false;
@@ -868,6 +886,9 @@
             let timedLengthSeconds = 120;
             let missilesDieWithShip = false;
             let mapId = 'classic';
+            let extraBots = 0;
+
+            const MAX_TOTAL_PLAYERS = 8;
 
             function setOnlineUiEnabled(enabled) {
                 if (!onlineReadyContainer || !localReadyContainer) return;
@@ -1249,6 +1270,7 @@
                     timedLengthSeconds,
                     missilesDieWithShip,
                     gameSpeed,
+                    extraBots,
                 };
             }
 
@@ -1275,6 +1297,7 @@
                 if (timedLengthInput) timedLengthInput.disabled = !allow;
                 if (missilesDieWithShipCheckbox) missilesDieWithShipCheckbox.disabled = !allow;
                 if (mapSelect) mapSelect.disabled = !allow;
+                if (extraBotsInput) extraBotsInput.disabled = onlineMode ? !allow : false;
             }
 
             function applyObserverUi() {
@@ -1378,6 +1401,79 @@
                     isPlayer1Bot = false;
                     isPlayer2Bot = false;
                     showMessageBox('start', 'Click "Ready" to Begin');
+                }
+            }
+
+            function parseExtraBots(value) {
+                const n = Number(value);
+                if (!Number.isFinite(n)) return 0;
+                return Math.max(0, Math.floor(n));
+            }
+
+            function getLocalHumanCount() {
+                let count = 0;
+                if (player1Ready && !isPlayer1Bot) count += 1;
+                if (player2Ready && !isPlayer2Bot) count += 1;
+                return count;
+            }
+
+            function getLocalFixedBotCount() {
+                let count = 0;
+                if (player1Ready && isPlayer1Bot) count += 1;
+                if (player2Ready && isPlayer2Bot) count += 1;
+                return count;
+            }
+
+            function clampExtraBotsForPlayers() {
+                const prev = extraBots;
+                const maxBotsTotal = Math.max(0, MAX_TOTAL_PLAYERS - getLocalHumanCount());
+                const maxExtraBots = Math.max(0, maxBotsTotal - getLocalFixedBotCount());
+                extraBots = Math.min(extraBots, maxExtraBots);
+                if (extraBotsInput) extraBotsInput.value = String(extraBots);
+                return extraBots !== prev;
+            }
+
+            function setExtraBots(value) {
+                extraBots = parseExtraBots(value);
+                clampExtraBotsForPlayers();
+                if (extraBotsInput) extraBotsInput.value = String(extraBots);
+                try {
+                    localStorage.setItem('gduel.extraBots', String(extraBots));
+                } catch (_) {
+                    // Ignore storage failures
+                }
+
+                if (!isGameRunning && !isGamePaused && !onlineMode) {
+                    recreateMatch();
+                    showMessageBox('start', 'Click "Ready" to Begin');
+                }
+            }
+
+            function getLocalPlayerOrder() {
+                const seatCount = 2 + extraBots;
+                return Array.from({ length: seatCount }, (_, i) => i + 1);
+            }
+
+            function applyLocalBotAssignments() {
+                if (!match || onlineMode) return;
+                const botPlayers = new Set();
+                if (isPlayer1Bot) botPlayers.add(1);
+                if (isPlayer2Bot) botPlayers.add(2);
+                for (let idx = 3; idx <= 2 + extraBots; idx += 1) {
+                    botPlayers.add(idx);
+                }
+
+                for (const [id, ship] of match.world.stores.ship) {
+                    const enabled = botPlayers.has(ship.playerIndex);
+                    setBotEnabled(match.world, id, enabled);
+                }
+            }
+
+            function applyOnlineBotAssignments() {
+                if (!match || !onlineMode) return;
+                for (const [id, ship] of match.world.stores.ship) {
+                    const enabled = onlineBotPlayers.has(ship.playerIndex);
+                    setBotEnabled(match.world, id, enabled);
                 }
             }
 
@@ -1552,6 +1648,14 @@
                 setMissilesDieWithShip(false);
             }
 
+            try {
+                const savedExtraBots = localStorage.getItem('gduel.extraBots');
+                if (savedExtraBots != null) setExtraBots(savedExtraBots);
+                else setExtraBots(0);
+            } catch (_) {
+                setExtraBots(0);
+            }
+
             if (gameSpeedSlider) {
                 gameSpeedSlider.addEventListener('input', (e) => {
                     setGameSpeed(e.target.value);
@@ -1575,6 +1679,12 @@
                     // Only allow changing map from the main menu / between rounds.
                     if (isGameRunning || isGamePaused) return;
                     setMap(e.target.value);
+                });
+            }
+
+            if (extraBotsInput) {
+                extraBotsInput.addEventListener('input', (e) => {
+                    setExtraBots(e.target.value);
                 });
             }
 
@@ -1693,9 +1803,17 @@
                         onlineControls: true,
                     });
                 } else {
-                    match = createMatch({ canvas, ctx, document, maxMissiles: maxShots, mapId });
+                    match = createMatch({
+                        canvas,
+                        ctx,
+                        document,
+                        maxMissiles: maxShots,
+                        mapId,
+                        playerOrder: getLocalPlayerOrder(),
+                    });
                 }
                 applyMaxShotsToMatch();
+                applyLocalBotAssignments();
                 resetGame();
 
                 // Render a single frame for the start screen.
@@ -1921,13 +2039,21 @@
                             onlineControls: true,
                         });
                     } else {
-                        match = createMatch({ canvas, ctx, document, maxMissiles: maxShots, mapId });
+                        match = createMatch({
+                            canvas,
+                            ctx,
+                            document,
+                            maxMissiles: maxShots,
+                            mapId,
+                            playerOrder: getLocalPlayerOrder(),
+                        });
                     }
                 } else {
                     resizeMatch(match.world, match, { width: canvas.width, height: canvas.height });
                 }
 
                 applyMaxShotsToMatch();
+                applyLocalBotAssignments();
 
                 resetGame();
 
@@ -2031,6 +2157,7 @@
                 isGameRunning = true;
                 isVictoryOpen = false;
                 resetGame();
+                applyLocalBotAssignments();
                 gameLoop();
             }
 
@@ -2062,8 +2189,7 @@
                 const dtMs = dtRealMs * gameSpeed;
                 match.world.resources.gameTimeMs += dtMs;
 
-                setBotEnabled(match.world, match.ship1Id, isPlayer1Bot);
-                setBotEnabled(match.world, match.ship2Id, isPlayer2Bot);
+                applyLocalBotAssignments();
 
                 const result = stepWorld(
                     match.world,
@@ -2108,6 +2234,8 @@
                 if (onlineMode) return;
                 player1Ready = true;
                 isPlayer1Bot = false;
+                const changed = clampExtraBotsForPlayers();
+                if (changed && !isGameRunning && !isGamePaused) recreateMatch();
                 checkBothReady();
             });
 
@@ -2115,6 +2243,8 @@
                 if (onlineMode) return;
                 player1Ready = true;
                 isPlayer1Bot = true;
+                const changed = clampExtraBotsForPlayers();
+                if (changed && !isGameRunning && !isGamePaused) recreateMatch();
                 checkBothReady();
             });
 
@@ -2122,6 +2252,8 @@
                 if (onlineMode) return;
                 player2Ready = true;
                 isPlayer2Bot = false;
+                const changed = clampExtraBotsForPlayers();
+                if (changed && !isGameRunning && !isGamePaused) recreateMatch();
                 checkBothReady();
             });
 
@@ -2129,6 +2261,8 @@
                 if (onlineMode) return;
                 player2Ready = true;
                 isPlayer2Bot = true;
+                const changed = clampExtraBotsForPlayers();
+                if (changed && !isGameRunning && !isGamePaused) recreateMatch();
                 checkBothReady();
             });
 
@@ -2166,6 +2300,7 @@
                 if (cfg.timedLengthSeconds != null) setTimedLengthSeconds(cfg.timedLengthSeconds);
                 if (cfg.missilesDieWithShip != null) setMissilesDieWithShip(cfg.missilesDieWithShip);
                 if (cfg.gameSpeed != null) setGameSpeed(cfg.gameSpeed);
+                if (cfg.extraBots != null) setExtraBots(cfg.extraBots);
 
                 setOnlineControlsEnabled();
             }
@@ -2289,6 +2424,7 @@
                     if (data.type === 'start') {
                         onlineStarted = true;
                         onlinePlayerOrder = Array.isArray(data.playerOrder) ? data.playerOrder : null;
+                        onlineBotPlayers = new Set(Array.isArray(data.botPlayers) ? data.botPlayers : []);
                         if (data.playerColors && typeof data.playerColors === 'object') {
                             onlinePlayerColors = data.playerColors;
                         } else {
@@ -2347,12 +2483,7 @@
                         const dtMs = (Number(data.dtMs) || 0) * gameSpeed;
                         match.world.resources.gameTimeMs += dtMs;
 
-                        if (Array.isArray(match.shipIds)) {
-                            for (const sid of match.shipIds) setBotEnabled(match.world, sid, false);
-                        } else {
-                            setBotEnabled(match.world, match.ship1Id, false);
-                            setBotEnabled(match.world, match.ship2Id, false);
-                        }
+                        applyOnlineBotAssignments();
 
                         const tickKeys = data.keys && typeof data.keys === 'object' ? data.keys : {};
                         const jp = Array.isArray(data.justPressed) ? data.justPressed : [];
@@ -2478,6 +2609,7 @@
             if (stockLivesInput) stockLivesInput.addEventListener('change', maybeSendOnlineConfig);
             if (timedLengthInput) timedLengthInput.addEventListener('change', maybeSendOnlineConfig);
             if (missilesDieWithShipCheckbox) missilesDieWithShipCheckbox.addEventListener('change', maybeSendOnlineConfig);
+            if (extraBotsInput) extraBotsInput.addEventListener('change', maybeSendOnlineConfig);
 
             showMessageBox('start', 'Click "Ready" to Begin');
         });

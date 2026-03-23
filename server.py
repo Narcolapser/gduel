@@ -129,6 +129,8 @@ class Room:
 
 	def start_payload(self) -> dict[str, Any]:
 		player_order = [p.player_index for p in self.active_players()]
+		bot_players = self.bot_players()
+		player_order.extend(bot_players)
 		player_colors = {
 			str(p.player_index): p.color
 			for p in self.active_players()
@@ -147,11 +149,43 @@ class Room:
 				"timedLengthSeconds": 120,
 				"missilesDieWithShip": False,
 				"gameSpeed": 1.0,
+				"extraBots": 0,
 			},
 			"tickMs": TICK_MS,
 			"playerOrder": player_order,
 			"playerColors": player_colors,
+			"botPlayers": bot_players,
 		}
+
+	def desired_bot_count(self) -> int:
+		if not isinstance(self.config, dict):
+			return 0
+		# Keep stored extraBots in range for sanity.
+		return clamp_int(self.config.get("extraBots"), 0, min_value=0, max_value=MAX_PLAYERS)
+
+	def max_bot_slots(self) -> int:
+		return max(0, MAX_PLAYERS - self.connected_count())
+
+	def effective_bot_count(self) -> int:
+		return min(self.desired_bot_count(), self.max_bot_slots())
+
+	def bot_players(self) -> list[int]:
+		count = self.effective_bot_count()
+		if count <= 0:
+			return []
+		used = set(self.players_by_index.keys())
+		available = [i for i in range(1, MAX_PLAYERS + 1) if i not in used]
+		return available[:count]
+
+	def clamp_bot_config(self) -> bool:
+		if not isinstance(self.config, dict):
+			return False
+		previous = self.desired_bot_count()
+		clamped = min(previous, self.max_bot_slots())
+		if clamped != previous or "extraBots" not in self.config:
+			self.config["extraBots"] = clamped
+			return True
+		return False
 
 	def primary_player(self) -> PlayerConn | None:
 		p1 = self.players_by_index.get(1)
@@ -210,6 +244,7 @@ class Room:
 			"timedLengthSeconds": clamp_int(cfg.get("timedLengthSeconds"), 120, min_value=30, max_value=3600),
 			"missilesDieWithShip": bool(cfg.get("missilesDieWithShip", False)),
 			"gameSpeed": clamp_float(cfg.get("gameSpeed"), 1.0, min_value=0.5, max_value=4.0),
+			"extraBots": clamp_int(cfg.get("extraBots"), 0, min_value=0, max_value=MAX_PLAYERS),
 		}
 
 	async def maybe_start(self) -> None:
@@ -392,6 +427,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 		ws,
 		{"type": "assigned", "playerIndex": player.player_index, "observer": player.observer},
 	)
+	if room.clamp_bot_config() and not room.started:
+		await room.broadcast({"type": "config", "config": room.config})
 	await room.broadcast_status()
 	if room.started:
 		await ws_send_json(ws, room.start_payload())
@@ -436,6 +473,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 							"observer": player.observer,
 						},
 					)
+					if room.clamp_bot_config() and not room.started:
+						await room.broadcast({"type": "config", "config": room.config})
 					await room.broadcast_status()
 					continue
 
@@ -446,6 +485,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 						player.ready = True
 					if room.config is None:
 						room.config = room.sanitize_config(data.get("config"))
+						room.clamp_bot_config()
+						await room.broadcast({"type": "config", "config": room.config})
 					await room.broadcast_status()
 					await room.maybe_start()
 
@@ -488,6 +529,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 					if room.started:
 						continue
 					room.config = room.sanitize_config(data.get("config"))
+					room.clamp_bot_config()
 
 					# Clear readiness for everyone except player 1.
 					for p in room.players_by_index.values():
@@ -544,6 +586,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 		elif room.connected_count() == 0:
 			await room.stop()
 		else:
+			if room.clamp_bot_config() and not room.started:
+				await room.broadcast({"type": "config", "config": room.config})
 			await room.broadcast_status()
 		if room.connected_count() == 0 and room_id != "lobby":
 			rooms.pop(room_id, None)

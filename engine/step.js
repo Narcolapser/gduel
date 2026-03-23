@@ -124,28 +124,49 @@ function botSystem(world, dtFactor) {
   const ships = shipIds(world);
   if (ships.length < 2) return;
 
-  const [a, b] = ships;
-  const pairs = [
-    [a, b],
-    [b, a],
-  ];
+  const frame = Math.floor(world.resources.gameTimeMs / TICK_MS);
+  const pseudoRandom = (seed) => {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  };
 
-  for (const [botId, targetId] of pairs) {
-    if (isRespawning(world, botId) || isRespawning(world, targetId)) continue;
+  for (const botId of ships) {
+    if (isRespawning(world, botId)) continue;
 
     const bot = world.stores.ship.get(botId);
     const botEnabled = world.stores.bot.get(botId)?.enabled ?? false;
     if (!botEnabled) continue;
 
+    let bestTargetId = null;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (const targetId of ships) {
+      if (targetId === botId) continue;
+      if (isRespawning(world, targetId)) continue;
+      const tBot = world.stores.transform.get(botId);
+      const tTarget = world.stores.transform.get(targetId);
+      if (!tBot || !tTarget) continue;
+      const dx = tTarget.x - tBot.x;
+      const dy = tTarget.y - tBot.y;
+      const dist = dx * dx + dy * dy;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestTargetId = targetId;
+      }
+    }
+
+    if (!bestTargetId) continue;
+
     const tBot = world.stores.transform.get(botId);
     const vBot = world.stores.velocity.get(botId);
-    const tTarget = world.stores.transform.get(targetId);
+    const tTarget = world.stores.transform.get(bestTargetId);
+    if (!tBot || !vBot || !tTarget) continue;
 
     const dx = tTarget.x - tBot.x;
     const dy = tTarget.y - tBot.y;
     let angleToTarget = Math.atan2(dy, dx);
 
-    const randomness = (Math.random() - 0.5) * 0.5;
+    const jitterSeed = botId * 9973 + bestTargetId * 37 + frame * 131;
+    const randomness = (pseudoRandom(jitterSeed) - 0.5) * 0.5;
     angleToTarget += randomness;
 
     let angleDiff = angleToTarget - tBot.angle;
@@ -171,12 +192,14 @@ function botSystem(world, dtFactor) {
     const angleTolerance = 0.1;
     const firingDistance = 180;
     const firingChance = 0.05;
+    const fireSeed = botId * 7919 + bestTargetId * 43 + frame * 29;
+    const fireRoll = pseudoRandom(fireSeed);
 
     if (
       canFire(world, botId) &&
       Math.abs(angleDiff) < angleTolerance &&
       distance < firingDistance &&
-      Math.random() < firingChance
+      fireRoll < firingChance
     ) {
       bot._wantsFire = true;
     }
