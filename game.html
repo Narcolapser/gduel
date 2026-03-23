@@ -797,6 +797,8 @@
             let onlinePlayerOrder = null;
             let onlinePlayerColors = null;
             let lastRoomPlayers = [];
+            let victoryReadyAtMs = 0;
+            let isVictoryOpen = false;
 
             const COLOR_PALETTE = [
                 '#00d9ff',
@@ -1645,6 +1647,8 @@
             function endGame(outcome) {
                 isGameRunning = false;
                 cancelAnimationFrame(animationFrameId);
+                victoryReadyAtMs = performance.now() + 500;
+                isVictoryOpen = true;
                 const stats = getStatsForMatch();
                 const winner = outcome?.winnerShipId
                     ? stats.find((s) => s.id === outcome.winnerShipId)
@@ -1658,6 +1662,10 @@
                 }
 
                 showMessageBox('victory', title);
+                if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                    document.activeElement.blur();
+                }
+                if (rematchButton) rematchButton.blur();
                 if (victorySummary) victorySummary.textContent = outcome?.summary ?? '';
                 renderVictoryStats(stats);
             }
@@ -1776,6 +1784,7 @@
             }
 
             function showMessageBox(type, message) {
+                if (type === 'start' && isVictoryOpen) return;
                 messageText.textContent = message;
                 messageBox.style.display = 'flex';
                 if (victoryPanel) victoryPanel.classList.toggle('is-active', type === 'victory');
@@ -1800,7 +1809,8 @@
                 }
             }
             
-            function quitGame() {
+            function quitGame({ force = false } = {}) {
+                if (isVictoryOpen && !force) return;
                 if (onlineMode) {
                     wsSend({ type: 'end' });
                 }
@@ -1811,6 +1821,7 @@
                 player2Ready = false;
                 isPlayer1Bot = false;
                 isPlayer2Bot = false;
+                isVictoryOpen = false;
 
                 resetGame();
                 stepWorld(
@@ -1851,6 +1862,7 @@
 
                 messageBox.style.display = 'none';
                 isGameRunning = true;
+                isVictoryOpen = false;
                 resetGame();
                 gameLoop();
             }
@@ -1863,6 +1875,7 @@
                 messageBox.style.display = 'none';
                 isGameRunning = true;
                 isGamePaused = false;
+                isVictoryOpen = false;
                 resetGame();
 
                 onlineStarted = true;
@@ -1968,8 +1981,9 @@
             quitButton.addEventListener('click', quitGame);
             if (rematchButton) {
                 rematchButton.addEventListener('click', () => {
-                    quitGame();
-                    setActiveTab('lobby');
+                    if (performance.now() < victoryReadyAtMs) return;
+                    quitGame({ force: true });
+                    window.location.href = window.location.pathname || '/';
                 });
             }
 
