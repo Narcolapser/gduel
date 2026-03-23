@@ -79,6 +79,7 @@ class PlayerConn:
 	pending_just_pressed_actions: set[str] = field(default_factory=set)
 	name: str | None = None
 	color: str | None = None
+	observer: bool = False
 
 	def set_action(self, action: str, down: bool) -> None:
 		if action not in VALID_ACTIONS:
@@ -101,24 +102,56 @@ class Room:
 	tick_task: asyncio.Task | None = None
 	config: dict[str, Any] | None = None
 
+	def active_players(self) -> list[PlayerConn]:
+		return [p for p in self.players() if not p.observer]
+
+	def active_count(self) -> int:
+		return sum(1 for p in self.players_by_index.values() if not p.observer)
+
 	def connected_count(self) -> int:
 		return len(self.players_by_index)
 
 	def ready_count(self) -> int:
-		return sum(1 for p in self.players_by_index.values() if p.ready)
+		return sum(1 for p in self.players_by_index.values() if p.ready and not p.observer)
 
 	def both_connected(self) -> bool:
-		return self.connected_count() >= 2
+		return self.active_count() >= 2
 
 	def both_ready(self) -> bool:
 		# Start when >= 75% of connected users are ready.
-		n = self.connected_count()
+		n = self.active_count()
 		if n < 2:
 			return False
 		return (self.ready_count() / n) >= 0.75
 
 	def players(self) -> list[PlayerConn]:
 		return [self.players_by_index[i] for i in sorted(self.players_by_index.keys())]
+
+	def start_payload(self) -> dict[str, Any]:
+		player_order = [p.player_index for p in self.active_players()]
+		player_colors = {
+			str(p.player_index): p.color
+			for p in self.active_players()
+			if isinstance(p.color, str) and p.color
+		}
+		return {
+			"type": "start",
+			"config": self.config
+			or {
+				"mapId": "classic",
+				"borderMode": "outerSpace",
+				"maxShots": 3,
+				"objectiveScore": 5,
+				"gameMode": "point",
+				"stockLives": 5,
+				"timedLengthSeconds": 120,
+				"missilesDieWithShip": False,
+				"gameSpeed": 1.0,
+			},
+			"tickMs": TICK_MS,
+			"playerOrder": player_order,
+			"playerColors": player_colors,
+		}
 
 	async def broadcast(self, obj: Any) -> None:
 		for p in self.players():
@@ -141,6 +174,7 @@ class Room:
 						"ready": p.ready,
 						"name": p.name,
 						"color": p.color,
+						"observer": p.observer,
 					}
 					for p in self.players()
 				],
@@ -178,32 +212,7 @@ class Room:
 			return
 
 		self.started = True
-		player_order = [p.player_index for p in self.players()]
-		player_colors = {
-			str(p.player_index): p.color
-			for p in self.players()
-			if isinstance(p.color, str) and p.color
-		}
-		await self.broadcast(
-			{
-				"type": "start",
-				"config": self.config
-				or {
-					"mapId": "classic",
-					"borderMode": "outerSpace",
-					"maxShots": 3,
-					"objectiveScore": 5,
-					"gameMode": "point",
-					"stockLives": 5,
-					"timedLengthSeconds": 120,
-					"missilesDieWithShip": False,
-					"gameSpeed": 1.0,
-				},
-				"tickMs": TICK_MS,
-				"playerOrder": player_order,
-				"playerColors": player_colors,
-			}
-		)
+		await self.broadcast(self.start_payload())
 
 		if self.tick_task is None or self.tick_task.done():
 			self.tick_task = asyncio.create_task(self.tick_loop())
@@ -222,7 +231,7 @@ class Room:
 	async def tick_loop(self) -> None:
 		loop = asyncio.get_running_loop()
 		next_t = loop.time()
-		while self.started and self.connected_count() >= 1:
+		while self.started and self.active_count() >= 1:
 			next_t += TICK_S
 
 			# Build pseudo-key state the existing engine can consume.
@@ -230,6 +239,8 @@ class Room:
 			keys: dict[str, bool] = {}
 			just_pressed: set[str] = set()
 			for p in self.players_by_index.values():
+				if p.observer:
+					continue
 				prefix = f"p{p.player_index}:"
 				for action, down in p.actions.items():
 					keys[prefix + action] = bool(down)
@@ -366,10 +377,17 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 	# Assign the lowest free player index.
 	player_index = next(i for i in range(1, MAX_PLAYERS + 1) if i not in room.players_by_index)
 	player = PlayerConn(ws=ws, player_index=player_index)
+	if room.started:
+		player.observer = True
 	room.players_by_index[player_index] = player
 
-	await ws_send_json(ws, {"type": "assigned", "playerIndex": player.player_index})
+	await ws_send_json(
+		ws,
+		{"type": "assigned", "playerIndex": player.player_index, "observer": player.observer},
+	)
 	await room.broadcast_status()
+	if room.started:
+		await ws_send_json(ws, room.start_payload())
 
 	try:
 		async for msg in ws:
@@ -387,16 +405,32 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 				if mtype == "profile":
 					player.name = sanitize_name(data.get("name"))
 					desired = sanitize_color(data.get("color"))
+					if room.started:
+						player.observer = True
+					else:
+						player.observer = bool(data.get("observer"))
+					if player.observer:
+						player.ready = False
+						player.actions.clear()
+						player.pending_just_pressed_actions.clear()
 					await resolve_profile_color(room, player, desired)
 					await ws_send_json(
 						player.ws,
-						{"type": "profile", "name": player.name, "color": player.color},
+						{
+							"type": "profile",
+							"name": player.name,
+							"color": player.color,
+							"observer": player.observer,
+						},
 					)
 					await room.broadcast_status()
 					continue
 
 				if mtype == "ready":
-					player.ready = True
+					if player.observer:
+						player.ready = False
+					else:
+						player.ready = True
 					if room.config is None:
 						room.config = room.sanitize_config(data.get("config"))
 					await room.broadcast_status()
@@ -407,6 +441,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 					await room.broadcast_status()
 
 				elif mtype == "input":
+					if player.observer:
+						continue
 					action = normalize_key(data.get("action"))
 					down = bool(data.get("down"))
 					player.set_action(action, down)
@@ -414,6 +450,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 				elif mtype == "config":
 					# Only Player 1 can change settings; only before the match starts.
 					if player.player_index != 1:
+						continue
+					if player.observer:
 						continue
 					if room.started:
 						continue
@@ -432,6 +470,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 
 				elif mtype == "end":
 					# Either client can end the current match.
+					if player.observer:
+						continue
 					await room.stop()
 					for p in room.players():
 						p.ready = False
@@ -448,13 +488,17 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 		# Cleanup.
 		left_index = player.player_index
 		room.players_by_index.pop(player.player_index, None)
+		active_count = room.active_count()
 
 		if room.started:
-			if room.connected_count() == 0:
+			if active_count == 0:
 				await room.stop()
-			elif room.connected_count() == 1:
+				if room.connected_count() > 0:
+					await room.broadcast_status()
+			elif active_count == 1:
 				await room.broadcast({"type": "leave", "playerIndex": left_index})
-				winner = room.players()[0].player_index if room.players_by_index else None
+				remaining = room.active_players()
+				winner = remaining[0].player_index if remaining else None
 				await room.broadcast({"type": "victory", "winnerPlayerIndex": winner})
 				await room.stop()
 				for p in room.players():

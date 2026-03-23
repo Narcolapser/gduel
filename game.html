@@ -182,6 +182,20 @@
             gap: 12px;
         }
 
+        .menu-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: clamp(0.6rem, 1.4vw, 0.8rem);
+            color: #ffffff;
+        }
+
+        .menu-checkbox input {
+            width: 16px;
+            height: 16px;
+            accent-color: #ffffff;
+        }
+
         .menu-option-controls.stack {
             flex-direction: column;
             align-items: flex-start;
@@ -539,6 +553,16 @@
                             <div id="colorSwatches" class="color-swatch-grid" aria-label="Ship color"></div>
                         </div>
 
+                        <div class="menu-option">
+                            <div class="menu-option-label">Observer</div>
+                            <div class="menu-option-controls">
+                                <label class="menu-checkbox">
+                                    <input id="observerToggle" type="checkbox" aria-label="Join as observer" />
+                                    <span>Join as observer</span>
+                                </label>
+                            </div>
+                        </div>
+
                         <div id="roomLinkOption" class="menu-option" style="display: none;">
                             <div class="menu-option-label">Room Link</div>
                             <div class="menu-option-controls">
@@ -747,6 +771,7 @@
             const onlineStatus = document.getElementById('onlineStatus');
             const playerNameInput = document.getElementById('playerNameInput');
             const colorSwatches = document.getElementById('colorSwatches');
+            const observerToggle = document.getElementById('observerToggle');
             const roomLinkOption = document.getElementById('roomLinkOption');
             const roomLinkText = document.getElementById('roomLinkText');
             const copyRoomLinkButton = document.getElementById('copyRoomLinkButton');
@@ -799,6 +824,7 @@
             let lastRoomPlayers = [];
             let victoryReadyAtMs = 0;
             let isVictoryOpen = false;
+            let isObserver = false;
 
             const COLOR_PALETTE = [
                 '#00F5FF', // bright cyan
@@ -857,9 +883,11 @@
             function getStoredProfile() {
                 let name = null;
                 let color = null;
+                let observer = null;
                 try {
                     name = localStorage.getItem('gduel.playerName');
                     color = localStorage.getItem('gduel.playerColor');
+                    observer = localStorage.getItem('gduel.playerObserver');
                 } catch (_) {
                     // Ignore storage failures
                 }
@@ -870,15 +898,19 @@
                 if (!color || !COLOR_PALETTE.includes(color)) {
                     color = COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
                 }
+                if (observer == null) {
+                    observer = '0';
+                }
 
                 try {
                     localStorage.setItem('gduel.playerName', name);
                     localStorage.setItem('gduel.playerColor', color);
+                    localStorage.setItem('gduel.playerObserver', observer);
                 } catch (_) {
                     // Ignore storage failures
                 }
 
-                return { name, color };
+                return { name, color, observer: observer !== '0' };
             }
 
             function getRoomIdFromPath() {
@@ -891,6 +923,7 @@
             const profile = getStoredProfile();
             playerName = profile.name;
             selectedColor = profile.color;
+            isObserver = profile.observer;
 
             function wsUrl() {
                 const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -952,7 +985,8 @@
 
                     const status = document.createElement('div');
                     status.className = 'pilot-status';
-                    status.textContent = p && p.ready ? 'Ready' : 'Not Ready';
+                    if (p && p.observer) status.textContent = 'Observer';
+                    else status.textContent = p && p.ready ? 'Ready' : 'Not Ready';
 
                     row.appendChild(left);
                     row.appendChild(status);
@@ -1038,10 +1072,12 @@
 
             function updateProfileInputs() {
                 if (playerNameInput) playerNameInput.value = playerName;
+                if (observerToggle) observerToggle.checked = isObserver;
                 if (!colorSwatches) return;
                 [...colorSwatches.querySelectorAll('.color-swatch')].forEach((el) => {
                     el.classList.toggle('is-selected', el.dataset.color === selectedColor);
                 });
+                applyObserverUi();
             }
 
             function renderColorSwatches() {
@@ -1058,7 +1094,9 @@
                         selectedColor = color;
                         persistProfile();
                         updateProfileInputs();
-                        if (onlineMode) wsSend({ type: 'profile', name: playerName, color: selectedColor });
+                        if (onlineMode) {
+                            wsSend({ type: 'profile', name: playerName, color: selectedColor, observer: isObserver });
+                        }
                     });
                     colorSwatches.appendChild(swatch);
                 });
@@ -1069,6 +1107,7 @@
                 try {
                     localStorage.setItem('gduel.playerName', playerName);
                     localStorage.setItem('gduel.playerColor', selectedColor);
+                    localStorage.setItem('gduel.playerObserver', isObserver ? '1' : '0');
                 } catch (_) {
                     // Ignore storage failures
                 }
@@ -1111,7 +1150,7 @@
 
             function setOnlineControlsEnabled() {
                 // Only player 1 can change settings before the match starts.
-                const allow = onlineMode && isPlayerOne() && !onlineStarted;
+                const allow = onlineMode && isPlayerOne() && !onlineStarted && !isObserver;
                 if (gameSpeedSlider) gameSpeedSlider.disabled = !allow;
                 if (borderModeSelect) borderModeSelect.disabled = !allow;
                 if (gameModeSelect) gameModeSelect.disabled = !allow;
@@ -1121,6 +1160,16 @@
                 if (timedLengthInput) timedLengthInput.disabled = !allow;
                 if (missilesDieWithShipCheckbox) missilesDieWithShipCheckbox.disabled = !allow;
                 if (mapSelect) mapSelect.disabled = !allow;
+            }
+
+            function applyObserverUi() {
+                if (observerToggle) {
+                    observerToggle.checked = isObserver;
+                    observerToggle.disabled = onlineMode && onlineStarted;
+                }
+                if (readyOnlineButton) {
+                    readyOnlineButton.disabled = isObserver || onlineReadySent;
+                }
             }
 
             function applyOnlineUiVisibility() {
@@ -1456,6 +1505,7 @@
                 if (onlineMode) {
                     if (!isGameRunning || isGamePaused) return;
                     if (!myPlayerIndex) return;
+                    if (isObserver) return;
                     const allowed = onlineAllowedKeys();
                     if (!allowed.has(k)) return;
                     const action = actionForKey(k);
@@ -1493,6 +1543,7 @@
                 if (onlineMode) {
                     if (!isGameRunning || isGamePaused) return;
                     if (!myPlayerIndex) return;
+                    if (isObserver) return;
                     const allowed = onlineAllowedKeys();
                     if (!allowed.has(k)) return;
                     const action = actionForKey(k);
@@ -1969,10 +2020,11 @@
             if (readyOnlineButton) {
                 readyOnlineButton.addEventListener('click', () => {
                     if (!onlineMode) return;
+                    if (isObserver) return;
                     if (onlineReadySent) return;
                     onlineReadySent = true;
                     readyOnlineButton.disabled = true;
-                    wsSend({ type: 'profile', name: playerName, color: selectedColor });
+                    wsSend({ type: 'profile', name: playerName, color: selectedColor, observer: isObserver });
                     wsSend({ type: 'ready', config: getOnlineConfigSnapshot() });
                     setOnlineStatus('Ready sent. Waiting for opponent…');
                 });
@@ -2022,7 +2074,8 @@
                     showMessageBox('start', 'Online: click "Ready" when you are set.');
                     applyOnlineUiVisibility();
                     setOnlineControlsEnabled();
-                    wsSend({ type: 'profile', name: playerName, color: selectedColor });
+                    applyObserverUi();
+                    wsSend({ type: 'profile', name: playerName, color: selectedColor, observer: isObserver });
                 });
 
                 ws.addEventListener('message', (ev) => {
@@ -2037,8 +2090,11 @@
 
                     if (data.type === 'assigned') {
                         myPlayerIndex = data.playerIndex;
-                        setOnlineStatus(`Assigned Player ${myPlayerIndex}. Click Ready.`);
+                        isObserver = Boolean(data.observer);
+                        if (isObserver) setOnlineStatus(`Assigned Player ${myPlayerIndex}. Observer mode.`);
+                        else setOnlineStatus(`Assigned Player ${myPlayerIndex}. Click Ready.`);
                         setOnlineControlsEnabled();
+                        applyObserverUi();
                         return;
                     }
 
@@ -2046,6 +2102,9 @@
                         if (data.name && typeof data.name === 'string') playerName = data.name;
                         if (data.color && typeof data.color === 'string' && COLOR_PALETTE.includes(data.color)) {
                             selectedColor = data.color;
+                        }
+                        if (typeof data.observer === 'boolean') {
+                            isObserver = data.observer;
                         }
                         persistProfile();
                         updateProfileInputs();
@@ -2055,16 +2114,22 @@
                     if (data.type === 'room') {
                         const connected = data.connected ?? 0;
                         const readyCount = data.readyCount ?? 0;
-                        const need = Math.ceil(connected * 0.75);
+                        const activeConnected = Array.isArray(data.players)
+                            ? data.players.filter((p) => p && !p.observer).length
+                            : connected;
+                        const need = Math.ceil(activeConnected * 0.75);
 
                         let myReady = false;
+                        let myObserver = false;
                         if (Array.isArray(data.players) && myPlayerIndex != null) {
                             const me = data.players.find(p => p && p.playerIndex === myPlayerIndex);
                             myReady = Boolean(me && me.ready);
+                            myObserver = Boolean(me && me.observer);
                         }
 
-                        onlineReadySent = myReady;
-                        if (readyOnlineButton) readyOnlineButton.disabled = myReady;
+                        if (myPlayerIndex != null) isObserver = myObserver;
+                        onlineReadySent = myReady && !isObserver;
+                        applyObserverUi();
 
                         if (!data.started) {
                             onlineStarted = false;
@@ -2072,8 +2137,13 @@
                             setOnlineControlsEnabled();
                         }
 
-                        if (onlineReadySent) setOnlineStatus(`Ready sent. Waiting… (${readyCount}/${connected}, need ${need})`);
-                        else setOnlineStatus(`Ready ${readyCount}/${connected} (need ${need})`);
+                        if (isObserver) {
+                            setOnlineStatus(data.started ? 'Observer: match in progress.' : 'Observer: waiting for match.');
+                        } else if (onlineReadySent) {
+                            setOnlineStatus(`Ready sent. Waiting… (${readyCount}/${activeConnected}, need ${need})`);
+                        } else {
+                            setOnlineStatus(`Ready ${readyCount}/${activeConnected} (need ${need})`);
+                        }
 
                         lastRoomPlayers = Array.isArray(data.players) ? data.players : [];
                         syncPlayerColors(Array.isArray(data.players) ? data.players : []);
@@ -2101,6 +2171,7 @@
                             onlinePlayerColors[myPlayerIndex] = selectedColor;
                         }
                         applyOnlineConfig(data.config);
+                        applyObserverUi();
 
                         // Online mode: all connected users are humans.
                         isPlayer1Bot = false;
@@ -2171,6 +2242,7 @@
                         setOnlineUiEnabled(false);
                         setOnlineControlsEnabled();
                         applyOnlineUiVisibility();
+                        applyObserverUi();
                         showMessageBox('start', 'Online room is full. Use local play for now.');
                         return;
                     }
@@ -2185,6 +2257,7 @@
                     setOnlineUiEnabled(false);
                     setOnlineControlsEnabled();
                     applyOnlineUiVisibility();
+                    applyObserverUi();
                     showMessageBox('start', 'Disconnected from online server.');
                 });
             }
@@ -2211,7 +2284,23 @@
                     const value = String(e.target.value || '').trim();
                     playerName = value || playerName;
                     persistProfile();
-                    if (onlineMode) wsSend({ type: 'profile', name: playerName, color: selectedColor });
+                    if (onlineMode) {
+                        wsSend({ type: 'profile', name: playerName, color: selectedColor, observer: isObserver });
+                    }
+                });
+            }
+
+            if (observerToggle) {
+                observerToggle.addEventListener('change', (e) => {
+                    isObserver = Boolean(e.target.checked);
+                    onlineReadySent = false;
+                    persistProfile();
+                    updateProfileInputs();
+                    setOnlineControlsEnabled();
+                    if (onlineMode) {
+                        wsSend({ type: 'profile', name: playerName, color: selectedColor, observer: isObserver });
+                        if (isObserver) setOnlineStatus('Observer mode enabled.');
+                    }
                 });
             }
 
@@ -2230,6 +2319,7 @@
 
             function maybeSendOnlineConfig() {
                 if (!onlineMode) return;
+                if (isObserver) return;
                 if (!isPlayerOne()) return;
                 if (onlineStarted) return;
                 wsSend({ type: 'config', config: getOnlineConfigSnapshot() });
