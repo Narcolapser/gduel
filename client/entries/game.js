@@ -35,12 +35,7 @@
             const quitButton = document.getElementById('quitButton');
             const readyButtonContainer = document.getElementById('ready-button-container');
             const pauseButtonContainer = document.getElementById('pause-button-container');
-            const scoreP1 = document.getElementById('score-p1');
-            const scoreP2 = document.getElementById('score-p2');
-            const hudItemP1 = document.getElementById('hud-item-p1');
-            const hudItemP2 = document.getElementById('hud-item-p2');
-            const hudLabelP1 = document.getElementById('hud-label-p1');
-            const hudLabelP2 = document.getElementById('hud-label-p2');
+            const bottomHud = document.getElementById('bottomHud');
             const gameContainer = document.getElementById('gameContainer');
             const gameSpeedSlider = document.getElementById('gameSpeedSlider');
             const gameSpeedValue = document.getElementById('gameSpeedValue');
@@ -249,8 +244,22 @@
                 else syncHud(snap);
             }
 
-            function updateBottomHud(snapshot) {
+            function orderedHudShips(snapshot, activePlayerIndex) {
                 if (!snapshot || !Array.isArray(snapshot.ships)) return;
+
+                const ships = [...snapshot.ships].sort((a, b) => a.playerIndex - b.playerIndex);
+                if (activePlayerIndex == null) return ships;
+
+                const active = ships.find((ship) => ship.playerIndex === activePlayerIndex);
+                if (!active) return ships;
+                return [active, ...ships.filter((ship) => ship.playerIndex !== activePlayerIndex)];
+            }
+
+            function updateBottomHud(snapshot, { activePlayerIndex = null } = {}) {
+                if (!bottomHud) return;
+
+                const ships = orderedHudShips(snapshot, activePlayerIndex);
+                if (!Array.isArray(ships)) return;
 
                 const statsSnap = gameMode === 'stock' && match ? getStatsSnapshot(match.world) : null;
                 const statsByPlayer = new Map();
@@ -258,35 +267,37 @@
                     statsSnap.ships.forEach((s) => statsByPlayer.set(s.playerIndex, s));
                 }
 
-                const updateSlot = (playerIndex, labelEl, valueEl, itemEl) => {
-                    const ship = snapshot.ships.find((s) => s.playerIndex === playerIndex);
-                    if (!ship) {
-                        if (itemEl) itemEl.style.display = 'none';
-                        return;
-                    }
-                    if (itemEl) itemEl.style.display = 'flex';
+                bottomHud.innerHTML = '';
+                ships.forEach((ship) => {
+                    const item = document.createElement('div');
+                    item.className = 'bottom-hud-item';
 
+                    const label = document.createElement('div');
+                    label.className = 'bottom-hud-label';
+                    label.textContent = `P${ship.playerIndex} ${gameMode === 'stock' ? 'Lives' : 'Score'}`;
+
+                    const value = document.createElement('div');
+                    value.className = 'score-display';
                     if (gameMode === 'stock') {
-                        const stats = statsByPlayer.get(playerIndex);
+                        const stats = statsByPlayer.get(ship.playerIndex);
                         const deaths = stats?.deaths ?? 0;
                         const lives = Math.max(0, stockLives - deaths);
-                        if (labelEl) labelEl.textContent = 'Lives';
-                        if (valueEl) valueEl.textContent = String(lives);
+                        value.textContent = String(lives);
                     } else {
-                        if (labelEl) labelEl.textContent = 'Score';
-                        if (valueEl) valueEl.textContent = String(ship.score ?? 0);
+                        value.textContent = String(ship.score ?? 0);
                     }
 
-                    if (valueEl && ship.color) valueEl.style.color = ship.color;
-                };
+                    if (ship.color) value.style.color = ship.color;
 
-                updateSlot(1, hudLabelP1, scoreP1, hudItemP1);
-                updateSlot(2, hudLabelP2, scoreP2, hudItemP2);
+                    item.appendChild(label);
+                    item.appendChild(value);
+                    bottomHud.appendChild(item);
+                });
             }
 
             function syncHud(snapshot, { activePlayerIndex = null } = {}) {
                 updateUi(document, snapshot, { activePlayerIndex });
-                updateBottomHud(snapshot);
+                updateBottomHud(snapshot, { activePlayerIndex });
             }
 
             function updateProfileInputs() {
