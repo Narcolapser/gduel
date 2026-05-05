@@ -1,9 +1,6 @@
 import { MAX_FUEL_SECONDS, TOTAL_FUEL_LINES } from './constants.js';
 
 function setHudColor(document, slot, color) {
-  const scoreEl = document.getElementById(`score-${slot}`);
-  if (scoreEl) scoreEl.style.color = color || '';
-
   const fuelEl = document.getElementById(`fuel-display-${slot}`);
   if (fuelEl) fuelEl.style.borderColor = color || '';
 
@@ -62,54 +59,23 @@ function updateFuelDisplay(document, elementId, fuelSeconds, color = null) {
 }
 
 export function updateUi(document, snapshot, { activePlayerIndex = null } = {}) {
-  if (activePlayerIndex != null) {
-    const active = snapshot.ships.find((s) => s.playerIndex === activePlayerIndex);
-    if (!active) return;
+  const active = activePlayerIndex == null
+    ? null
+    : snapshot.ships.find((s) => s.playerIndex === activePlayerIndex);
 
-    setHudColor(document, 'p1', active.color);
-
-    const scoreEl = document.getElementById('score-p1');
-    if (scoreEl) scoreEl.textContent = String(active.score);
-    updateFuelDisplay(document, 'fuel-display-p1', active.fuel, active.color);
-    updateAmmoDisplay(
-      document,
-      'missile-icons-p1',
-      active.maxMissiles - active.activeMissiles,
-      active.maxMissiles,
-    );
-
-    // Clear the second panel if it exists.
-    setHudColor(document, 'p2', null);
-    const scoreEl2 = document.getElementById('score-p2');
-    if (scoreEl2) scoreEl2.textContent = '';
-    updateFuelDisplay(document, 'fuel-display-p2', 0, null);
-    updateAmmoDisplay(document, 'missile-icons-p2', 0, 0);
+  if (!active) {
+    setHudColor(document, 'active', null);
+    updateFuelDisplay(document, 'fuel-display-active', 0, null);
+    updateAmmoDisplay(document, 'missile-icons-active', 0, 0);
     return;
   }
 
-  for (const ship of snapshot.ships) {
-    if (ship.playerIndex === 1) {
-      setHudColor(document, 'p1', ship.color);
-      const scoreEl = document.getElementById('score-p1');
-      if (scoreEl) scoreEl.textContent = String(ship.score);
-      updateFuelDisplay(document, 'fuel-display-p1', ship.fuel, ship.color);
-      updateAmmoDisplay(
-        document,
-        'missile-icons-p1',
-        ship.maxMissiles - ship.activeMissiles,
-        ship.maxMissiles,
-      );
-    } else if (ship.playerIndex === 2) {
-      setHudColor(document, 'p2', ship.color);
-      const scoreEl = document.getElementById('score-p2');
-      if (scoreEl) scoreEl.textContent = String(ship.score);
-      updateFuelDisplay(document, 'fuel-display-p2', ship.fuel, ship.color);
-      updateAmmoDisplay(
-        document,
-        'missile-icons-p2',
-        ship.maxMissiles - ship.activeMissiles,
-        ship.maxMissiles,
-      );
-    }
-  }
+  setHudColor(document, 'active', active.color);
+  updateFuelDisplay(document, 'fuel-display-active', active.fuel, active.color);
+  updateAmmoDisplay(
+    document,
+    'missile-icons-active',
+    active.maxMissiles - active.activeMissiles,
+    active.maxMissiles,
+  );
 }

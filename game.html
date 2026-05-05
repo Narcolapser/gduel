@@ -347,11 +347,8 @@
             border-style: solid;
             border-width: 2px;
         }
-        #ammo-display-p1 {
+        #ammo-display-active {
             border-color: #00ff00;
-        }
-        #ammo-display-p2 {
-            border-color: #ff0000;
         }
         .missile-icons {
             display: flex;
@@ -399,13 +396,6 @@
             font-size: clamp(1rem, 2.5vw, 1.8rem);
             text-shadow: 0 0 5px #ffffff;
         }
-        #score-p1 {
-            color: #00ff00;
-        }
-        #score-p2 {
-            color: #ff0000;
-        }
-
         .bottom-hud {
             width: clamp(350px, 95vw, 950px);
             margin: 14px auto 0;
@@ -451,12 +441,8 @@
             border: 2px solid;
         }
 
-        #fuel-display-p1 {
+        #fuel-display-active {
             border-color: #00ff00;
-        }
-
-        #fuel-display-p2 {
-            border-color: #ff0000;
         }
 
         .fuel-line {
@@ -474,14 +460,6 @@
             gap: 10px;
         }
         
-        .pause-button-container {
-            display: none;
-            justify-content: space-between;
-            width: 100%;
-            margin-top: 15px;
-            gap: 10px;
-        }
-
         .player-ready-buttons {
             display: flex;
             flex-direction: column;
@@ -521,11 +499,11 @@
 
     <h1>Gravity Duel</h1>
     <div id="game-ui-wrapper">
-        <div id="player1-ui" class="player-ui">
-            <div id="ammo-display-p1" class="ammo-display">
-                <div id="missile-icons-p1" class="missile-icons"></div>
+        <div id="active-player-ui" class="player-ui">
+            <div id="ammo-display-active" class="ammo-display">
+                <div id="missile-icons-active" class="missile-icons"></div>
             </div>
-            <div id="fuel-display-p1" class="fuel-display"></div>
+            <div id="fuel-display-active" class="fuel-display"></div>
         </div>
         <div id="gameContainer">
             <canvas id="gameCanvas"></canvas>
@@ -585,18 +563,6 @@
                                 <div class="ready-label" style="color: #EECFFF;">Online</div>
                                 <button id="readyOnlineButton" class="action-button">Ready</button>
                                 <div id="onlineStatus" class="ready-status">Connecting…</div>
-                            </div>
-                            <div id="local-ready-container" class="ready-button-container" style="margin-top: 0;">
-                                <div class="player-ready-buttons">
-                                    <div class="ready-label" style="color: #00ff00;">Player 1</div>
-                                    <button id="readyP1Button" class="action-button">Ready Player</button>
-                                    <button id="readyBotP1Button" class="action-button">Ready Bot</button>
-                                </div>
-                                <div class="player-ready-buttons">
-                                    <div class="ready-label" style="color: #ff0000;">Player 2</div>
-                                    <button id="readyP2Button" class="action-button">Ready Player</button>
-                                    <button id="readyBotP2Button" class="action-button">Ready Bot</button>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -734,10 +700,6 @@
                         </div>
                     </div>
                 </div>
-                <div id="pause-button-container" class="pause-button-container">
-                    <button id="resumeButton" class="action-button">Resume</button>
-                    <button id="quitButton" class="action-button">Quit</button>
-                </div>
                 <div id="victoryPanel" class="victory-panel">
                     <div id="victorySummary" class="victory-summary"></div>
                     <div id="victoryStats" class="victory-stats"></div>
@@ -745,25 +707,10 @@
                 </div>
             </div>
         </div>
-        <div id="player2-ui" class="player-ui">
-            <div id="ammo-display-p2" class="ammo-display">
-                <div id="missile-icons-p2" class="missile-icons"></div>
-            </div>
-            <div id="fuel-display-p2" class="fuel-display"></div>
-        </div>
     </div>
-    <div id="bottomHud" class="bottom-hud">
-        <div id="hud-item-p1" class="bottom-hud-item">
-            <div id="hud-label-p1" class="bottom-hud-label">Score</div>
-            <div id="score-p1" class="score-display">0</div>
-        </div>
-        <div id="hud-item-p2" class="bottom-hud-item">
-            <div id="hud-label-p2" class="bottom-hud-label">Score</div>
-            <div id="score-p2" class="score-display">0</div>
-        </div>
-    </div>
+    <div id="bottomHud" class="bottom-hud"></div>
     <div class="instructions">
-        Use WASD to move and Space to shoot. Press Y to pause/resume. Press N to quit.
+        Use WASD to move and Space to shoot.
     </div>
 
     <script type="module" src="./client/entries/game.js"></script>

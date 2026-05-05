@@ -18,7 +18,6 @@
             const tabConfigPanel = document.getElementById('tab-config');
             const readyOnlineButton = document.getElementById('readyOnlineButton');
             const onlineReadyContainer = document.getElementById('online-ready-container');
-            const localReadyContainer = document.getElementById('local-ready-container');
             const onlineStatus = document.getElementById('onlineStatus');
             const playerNameInput = document.getElementById('playerNameInput');
             const colorSwatches = document.getElementById('colorSwatches');
@@ -27,14 +26,7 @@
             const roomLinkText = document.getElementById('roomLinkText');
             const copyRoomLinkButton = document.getElementById('copyRoomLinkButton');
             const pilotList = document.getElementById('pilotList');
-            const readyP1Button = document.getElementById('readyP1Button');
-            const readyBotP1Button = document.getElementById('readyBotP1Button');
-            const readyP2Button = document.getElementById('readyP2Button');
-            const readyBotP2Button = document.getElementById('readyBotP2Button');
-            const resumeButton = document.getElementById('resumeButton');
-            const quitButton = document.getElementById('quitButton');
             const readyButtonContainer = document.getElementById('ready-button-container');
-            const pauseButtonContainer = document.getElementById('pause-button-container');
             const bottomHud = document.getElementById('bottomHud');
             const gameContainer = document.getElementById('gameContainer');
             const gameSpeedSlider = document.getElementById('gameSpeedSlider');
@@ -77,15 +69,7 @@
             let selectedColor = COLOR_PALETTE[0];
             let playerName = '';
 
-            let player1Ready = false;
-            let player2Ready = false;
-            let isPlayer1Bot = false;
-            let isPlayer2Bot = false;
-
             let match = null;
-            let keys = {};
-            let justPressed = new Set();
-            let lastFrameMs = null;
 
             let gameSpeed = 1;
             let maxShots = 3;
@@ -101,9 +85,8 @@
             const MAX_TOTAL_PLAYERS = 8;
 
             function setOnlineUiEnabled(enabled) {
-                if (!onlineReadyContainer || !localReadyContainer) return;
+                if (!onlineReadyContainer) return;
                 onlineReadyContainer.style.display = enabled ? 'flex' : 'none';
-                localReadyContainer.style.display = enabled ? 'none' : 'flex';
             }
 
             function setOnlineStatus(text) {
@@ -162,14 +145,6 @@
             function renderPilotList(players) {
                 if (!pilotList) return;
                 pilotList.innerHTML = '';
-
-                if (!onlineMode) {
-                    const row = document.createElement('div');
-                    row.className = 'pilot-row';
-                    row.textContent = 'Local match. Waiting for players.';
-                    pilotList.appendChild(row);
-                    return;
-                }
 
                 if (!Array.isArray(players) || players.length === 0) {
                     const row = document.createElement('div');
@@ -239,9 +214,7 @@
                     if (color) ship.color = color;
                 }
 
-                const snap = getUiSnapshot(match.world);
-                if (onlineMode && myPlayerIndex != null) syncHud(snap, { activePlayerIndex: getActiveHudIndex() });
-                else syncHud(snap);
+                syncHud(getUiSnapshot(match.world), { activePlayerIndex: getActiveHudIndex() });
             }
 
             function orderedHudShips(snapshot, activePlayerIndex) {
@@ -402,7 +375,7 @@
                 if (timedLengthInput) timedLengthInput.disabled = !allow;
                 if (missilesDieWithShipCheckbox) missilesDieWithShipCheckbox.disabled = !allow;
                 if (mapSelect) mapSelect.disabled = !allow;
-                if (extraBotsInput) extraBotsInput.disabled = onlineMode ? !allow : false;
+                if (extraBotsInput) extraBotsInput.disabled = !allow;
             }
 
             function applyObserverUi() {
@@ -413,11 +386,6 @@
                 if (readyOnlineButton) {
                     readyOnlineButton.disabled = isObserver || onlineReadySent;
                 }
-            }
-
-            function applyOnlineUiVisibility() {
-                const p2 = document.getElementById('player2-ui');
-                if (p2) p2.style.display = onlineMode ? 'none' : '';
             }
 
             function clamp(n, min, max) {
@@ -498,15 +466,6 @@
                     // Ignore storage failures
                 }
 
-                // Recreate the match only when not actively running.
-                if (!isGameRunning && !isGamePaused && !onlineMode) {
-                    recreateMatch();
-                    player1Ready = false;
-                    player2Ready = false;
-                    isPlayer1Bot = false;
-                    isPlayer2Bot = false;
-                    showMessageBox('start', 'Click "Ready" to Begin');
-                }
             }
 
             function parseExtraBots(value) {
@@ -515,24 +474,9 @@
                 return Math.max(0, Math.floor(n));
             }
 
-            function getLocalHumanCount() {
-                let count = 0;
-                if (player1Ready && !isPlayer1Bot) count += 1;
-                if (player2Ready && !isPlayer2Bot) count += 1;
-                return count;
-            }
-
-            function getLocalFixedBotCount() {
-                let count = 0;
-                if (player1Ready && isPlayer1Bot) count += 1;
-                if (player2Ready && isPlayer2Bot) count += 1;
-                return count;
-            }
-
             function clampExtraBotsForPlayers() {
                 const prev = extraBots;
-                const maxBotsTotal = Math.max(0, MAX_TOTAL_PLAYERS - getLocalHumanCount());
-                const maxExtraBots = Math.max(0, maxBotsTotal - getLocalFixedBotCount());
+                const maxExtraBots = Math.max(0, MAX_TOTAL_PLAYERS - 1);
                 extraBots = Math.min(extraBots, maxExtraBots);
                 if (extraBotsInput) extraBotsInput.value = String(extraBots);
                 return extraBots !== prev;
@@ -546,31 +490,6 @@
                     localStorage.setItem('gduel.extraBots', String(extraBots));
                 } catch (_) {
                     // Ignore storage failures
-                }
-
-                if (!isGameRunning && !isGamePaused && !onlineMode) {
-                    recreateMatch();
-                    showMessageBox('start', 'Click "Ready" to Begin');
-                }
-            }
-
-            function getLocalPlayerOrder() {
-                const seatCount = 2 + extraBots;
-                return Array.from({ length: seatCount }, (_, i) => i + 1);
-            }
-
-            function applyLocalBotAssignments() {
-                if (!match || onlineMode) return;
-                const botPlayers = new Set();
-                if (isPlayer1Bot) botPlayers.add(1);
-                if (isPlayer2Bot) botPlayers.add(2);
-                for (let idx = 3; idx <= 2 + extraBots; idx += 1) {
-                    botPlayers.add(idx);
-                }
-
-                for (const [id, ship] of match.world.stores.ship) {
-                    const enabled = botPlayers.has(ship.playerIndex);
-                    setBotEnabled(match.world, id, enabled);
                 }
             }
 
@@ -601,18 +520,10 @@
 
             function applyMaxShotsToMatch() {
                 if (!match) return;
-                if (Array.isArray(match.shipIds) && match.shipIds.length > 0) {
-                    for (const sid of match.shipIds) {
-                        const ship = match.world.stores.ship.get(sid);
-                        if (ship) ship.maxMissiles = maxShots;
-                    }
-                    return;
+                for (const sid of match.shipIds || []) {
+                    const ship = match.world.stores.ship.get(sid);
+                    if (ship) ship.maxMissiles = maxShots;
                 }
-
-                const ship1 = match.world.stores.ship.get(match.ship1Id);
-                const ship2 = match.world.stores.ship.get(match.ship2Id);
-                if (ship1) ship1.maxMissiles = maxShots;
-                if (ship2) ship2.maxMissiles = maxShots;
             }
 
             function setMissilesDieWithShip(enabled) {
@@ -832,93 +743,50 @@
             document.addEventListener('keydown', (e) => {
                 const k = e.key.toLowerCase();
 
-                if (onlineMode) {
-                    if (!isGameRunning || isGamePaused) return;
-                    if (!myPlayerIndex) return;
-                    if (isObserver) return;
-                    const allowed = onlineAllowedKeys();
-                    if (!allowed.has(k)) return;
-                    const action = actionForKey(k);
-                    if (!action) return;
-                    if (e.repeat) return;
-                    if (localInputDown[k]) return;
-                    localInputDown[k] = true;
-                    e.preventDefault();
-                    wsSend({ type: 'input', action, down: true });
-                    return;
-                }
-
-                if (isGameRunning && !isGamePaused) {
-                    if (k === 'y') {
-                        pauseGame();
-                        return;
-                    }
-
-                    if (!keys[k]) {
-                        justPressed.add(k);
-                    }
-                    keys[k] = true;
-                } else if (isGamePaused) {
-                    if (k === 'y') {
-                        resumeGame();
-                    }
-                    if (k === 'n') {
-                        quitGame();
-                    }
-                }
+                if (!onlineMode || !isGameRunning || isGamePaused) return;
+                if (!myPlayerIndex || isObserver) return;
+                const allowed = onlineAllowedKeys();
+                if (!allowed.has(k)) return;
+                const action = actionForKey(k);
+                if (!action) return;
+                if (e.repeat || localInputDown[k]) return;
+                localInputDown[k] = true;
+                e.preventDefault();
+                wsSend({ type: 'input', action, down: true });
             });
             document.addEventListener('keyup', (e) => {
                 const k = e.key.toLowerCase();
 
-                if (onlineMode) {
-                    if (!isGameRunning || isGamePaused) return;
-                    if (!myPlayerIndex) return;
-                    if (isObserver) return;
-                    const allowed = onlineAllowedKeys();
-                    if (!allowed.has(k)) return;
-                    const action = actionForKey(k);
-                    if (!action) return;
-                    if (!localInputDown[k]) return;
-                    localInputDown[k] = false;
-                    e.preventDefault();
-                    wsSend({ type: 'input', action, down: false });
-                    return;
-                }
-
-                keys[k] = false;
+                if (!onlineMode || !isGameRunning || isGamePaused) return;
+                if (!myPlayerIndex || isObserver) return;
+                const allowed = onlineAllowedKeys();
+                if (!allowed.has(k)) return;
+                const action = actionForKey(k);
+                if (!action || !localInputDown[k]) return;
+                localInputDown[k] = false;
+                e.preventDefault();
+                wsSend({ type: 'input', action, down: false });
             });
 
             function resetGame() {
                 if (!match) return;
                 applyMaxShotsToMatch();
                 resetMatch(match.world, match);
-                lastFrameMs = null;
             }
 
             function recreateMatch() {
-                if (onlineMode && Array.isArray(onlinePlayerOrder) && onlinePlayerOrder.length > 0) {
-                    match = createMatch({
-                        canvas,
-                        ctx,
-                        document,
-                        maxMissiles: maxShots,
-                        mapId,
-                        playerOrder: onlinePlayerOrder,
-                        playerColors: onlinePlayerColors,
-                        onlineControls: true,
-                    });
-                } else {
-                    match = createMatch({
-                        canvas,
-                        ctx,
-                        document,
-                        maxMissiles: maxShots,
-                        mapId,
-                        playerOrder: getLocalPlayerOrder(),
-                    });
-                }
+                if (!Array.isArray(onlinePlayerOrder) || onlinePlayerOrder.length === 0) return;
+                match = createMatch({
+                    canvas,
+                    ctx,
+                    document,
+                    maxMissiles: maxShots,
+                    mapId,
+                    playerOrder: onlinePlayerOrder,
+                    playerColors: onlinePlayerColors,
+                    onlineControls: true,
+                });
                 applyMaxShotsToMatch();
-                applyLocalBotAssignments();
                 resetGame();
 
                 // Render a single frame for the start screen.
@@ -933,9 +801,7 @@
                         missilesDieWithShip,
                     }
                 );
-                const snap = getUiSnapshot(match.world);
-                if (onlineMode && myPlayerIndex != null) syncHud(snap, { activePlayerIndex: getActiveHudIndex() });
-                else syncHud(snap);
+                syncHud(getUiSnapshot(match.world), { activePlayerIndex: getActiveHudIndex() });
             }
 
             function getStatsForMatch() {
@@ -945,12 +811,7 @@
             }
 
             function playerLabelForStats(stat) {
-                if (onlineMode && myPlayerIndex != null) {
-                    return stat.playerIndex === myPlayerIndex ? 'You' : `Player ${stat.playerIndex}`;
-                }
-                if (stat.playerIndex === 1) return `Player 1 (${isPlayer1Bot ? 'Bot' : 'Human'})`;
-                if (stat.playerIndex === 2) return `Player 2 (${isPlayer2Bot ? 'Bot' : 'Human'})`;
-                return `Player ${stat.playerIndex}`;
+                return stat.playerIndex === myPlayerIndex ? 'You' : `Player ${stat.playerIndex}`;
             }
 
             function formatDurationMs(ms) {
@@ -1079,8 +940,6 @@
                 if (Array.isArray(match.shipIds)) {
                     match.shipIds = match.shipIds.filter((id) => id !== shipId);
                 }
-                if (match.ship1Id === shipId) match.ship1Id = null;
-                if (match.ship2Id === shipId) match.ship2Id = null;
 
                 if (Array.isArray(onlinePlayerOrder)) {
                     onlinePlayerOrder = onlinePlayerOrder.filter((idx) => idx !== playerIndex);
@@ -1090,9 +949,7 @@
                     delete onlinePlayerColors[String(playerIndex)];
                 }
 
-                const snap = getUiSnapshot(match.world);
-                if (onlineMode && myPlayerIndex != null) syncHud(snap, { activePlayerIndex: getActiveHudIndex() });
-                else syncHud(snap);
+                syncHud(getUiSnapshot(match.world), { activePlayerIndex: getActiveHudIndex() });
             }
 
             function handleDisconnectVictory(winnerIndex) {
@@ -1117,9 +974,7 @@
                             missilesDieWithShip,
                         }
                     );
-                    const snap = getUiSnapshot(match.world);
-                    if (onlineMode && myPlayerIndex != null) syncHud(snap, { activePlayerIndex: getActiveHudIndex() });
-                    else syncHud(snap);
+                    syncHud(getUiSnapshot(match.world), { activePlayerIndex: getActiveHudIndex() });
                 }
 
                 const label = winnerIndex && winnerIndex === myPlayerIndex ? 'You' : `Player ${winnerIndex}`;
@@ -1132,33 +987,24 @@
                 canvas.height = gameContainer.clientHeight;
 
                 if (!match) {
-                    if (onlineMode && Array.isArray(onlinePlayerOrder) && onlinePlayerOrder.length > 0) {
-                        match = createMatch({
-                            canvas,
-                            ctx,
-                            document,
-                            maxMissiles: maxShots,
-                            mapId,
-                            playerOrder: onlinePlayerOrder,
-                            playerColors: onlinePlayerColors,
-                            onlineControls: true,
-                        });
-                    } else {
-                        match = createMatch({
-                            canvas,
-                            ctx,
-                            document,
-                            maxMissiles: maxShots,
-                            mapId,
-                            playerOrder: getLocalPlayerOrder(),
-                        });
-                    }
+                    if (!Array.isArray(onlinePlayerOrder) || onlinePlayerOrder.length === 0) return;
+                    match = createMatch({
+                        canvas,
+                        ctx,
+                        document,
+                        maxMissiles: maxShots,
+                        mapId,
+                        playerOrder: onlinePlayerOrder,
+                        playerColors: onlinePlayerColors,
+                        onlineControls: true,
+                    });
                 } else {
                     resizeMatch(match.world, match, { width: canvas.width, height: canvas.height });
                 }
 
+                if (!match) return;
+
                 applyMaxShotsToMatch();
-                applyLocalBotAssignments();
 
                 resetGame();
 
@@ -1174,11 +1020,7 @@
                         missilesDieWithShip,
                     }
                 );
-                {
-                    const snap = getUiSnapshot(match.world);
-                    if (onlineMode && myPlayerIndex != null) syncHud(snap, { activePlayerIndex: getActiveHudIndex() });
-                    else syncHud(snap);
-                }
+                syncHud(getUiSnapshot(match.world), { activePlayerIndex: getActiveHudIndex() });
             }
 
             function showMessageBox(type, message) {
@@ -1189,19 +1031,11 @@
                 
                 if (type === 'start') {
                     readyButtonContainer.style.display = 'flex';
-                    pauseButtonContainer.style.display = 'none';
                     if (optionsTabs) optionsTabs.style.display = 'flex';
                     if (optionsPanels) optionsPanels.style.display = 'block';
                     if (victoryPanel) victoryPanel.classList.remove('is-active');
-                } else if (type === 'pause') {
-                    readyButtonContainer.style.display = 'none';
-                    pauseButtonContainer.style.display = 'flex';
-                    if (optionsTabs) optionsTabs.style.display = 'none';
-                    if (optionsPanels) optionsPanels.style.display = 'none';
-                    if (victoryPanel) victoryPanel.classList.remove('is-active');
                 } else if (type === 'victory') {
                     readyButtonContainer.style.display = 'none';
-                    pauseButtonContainer.style.display = 'none';
                     if (optionsTabs) optionsTabs.style.display = 'none';
                     if (optionsPanels) optionsPanels.style.display = 'none';
                 }
@@ -1215,60 +1049,28 @@
                 isGameRunning = false;
                 isGamePaused = false;
                 cancelAnimationFrame(animationFrameId);
-                player1Ready = false;
-                player2Ready = false;
-                isPlayer1Bot = false;
-                isPlayer2Bot = false;
                 isVictoryOpen = false;
 
-                resetGame();
-                stepWorld(
-                    match.world,
-                    { keys: {}, justPressed: new Set() },
-                    {
-                        dtMs: 0,
-                        planetId: match.planetId,
-                        borderMode,
-                        winningScore: gameMode === 'point' ? objectiveScore : Number.POSITIVE_INFINITY,
-                        missilesDieWithShip,
-                    }
-                );
-                {
-                    const snap = getUiSnapshot(match.world);
-                    if (onlineMode && myPlayerIndex != null) syncHud(snap, { activePlayerIndex: getActiveHudIndex() });
-                    else syncHud(snap);
+                if (match) {
+                    resetGame();
+                    stepWorld(
+                        match.world,
+                        { keys: {}, justPressed: new Set() },
+                        {
+                            dtMs: 0,
+                            planetId: match.planetId,
+                            borderMode,
+                            winningScore: gameMode === 'point' ? objectiveScore : Number.POSITIVE_INFINITY,
+                            missilesDieWithShip,
+                        }
+                    );
+                    syncHud(getUiSnapshot(match.world), { activePlayerIndex: getActiveHudIndex() });
                 }
 
-                showMessageBox('start', "Welcome to Gravity Duel! Click \"Ready\" to begin.");
-            }
-            
-            function pauseGame() {
-                isGamePaused = true;
-                cancelAnimationFrame(animationFrameId);
-                showMessageBox('pause', 'Game Paused\nWould you like to resume?');
-            }
-            
-            function resumeGame() {
-                isGamePaused = false;
-                messageBox.style.display = 'none';
-                gameLoop();
-            }
-
-            function startGame() {
-                keys = {}; 
-                justPressed = new Set();
-
-                messageBox.style.display = 'none';
-                isGameRunning = true;
-                isVictoryOpen = false;
-                resetGame();
-                applyLocalBotAssignments();
-                gameLoop();
+                showMessageBox('start', 'Online: click "Ready" when you are set.');
             }
 
             function startOnlineGame() {
-                keys = {};
-                justPressed = new Set();
                 localInputDown = {};
 
                 messageBox.style.display = 'none';
@@ -1283,93 +1085,8 @@
                 // Online mode steps on server tick messages.
             }
 
-            function gameLoop() {
-                if (!isGameRunning || isGamePaused) return;
-
-                const now = performance.now();
-                if (lastFrameMs === null) lastFrameMs = now;
-                const dtRealMs = Math.min(50, now - lastFrameMs);
-                lastFrameMs = now;
-
-                const dtMs = dtRealMs * gameSpeed;
-                match.world.resources.gameTimeMs += dtMs;
-
-                applyLocalBotAssignments();
-
-                const result = stepWorld(
-                    match.world,
-                    { keys, justPressed },
-                    {
-                        dtMs,
-                        planetId: match.planetId,
-                        borderMode,
-                        winningScore: gameMode === 'point' ? objectiveScore : Number.POSITIVE_INFINITY,
-                        missilesDieWithShip,
-                    }
-                );
-                justPressed.clear();
-
-                syncHud(getUiSnapshot(match.world));
-                enforceStockElimination();
-
-                const outcome = resolveOutcome(result);
-                if (outcome) {
-                    endGame(outcome);
-                    return;
-                }
-
-                animationFrameId = requestAnimationFrame(gameLoop);
-            }
-
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
-
-            function checkBothReady() {
-                if (onlineMode) return;
-                if (player1Ready && player2Ready) {
-                    startGame();
-                } else if (player1Ready) {
-                    showMessageBox('start', `Player 1 (${isPlayer1Bot ? 'Bot' : 'Human'}) is ready. Waiting for Player 2...`);
-                } else if (player2Ready) {
-                    showMessageBox('start', `Player 2 (${isPlayer2Bot ? 'Bot' : 'Human'}) is ready. Waiting for Player 1...`);
-                }
-            }
-
-            readyP1Button.addEventListener('click', () => {
-                if (onlineMode) return;
-                player1Ready = true;
-                isPlayer1Bot = false;
-                const changed = clampExtraBotsForPlayers();
-                if (changed && !isGameRunning && !isGamePaused) recreateMatch();
-                checkBothReady();
-            });
-
-            readyBotP1Button.addEventListener('click', () => {
-                if (onlineMode) return;
-                player1Ready = true;
-                isPlayer1Bot = true;
-                const changed = clampExtraBotsForPlayers();
-                if (changed && !isGameRunning && !isGamePaused) recreateMatch();
-                checkBothReady();
-            });
-
-            readyP2Button.addEventListener('click', () => {
-                if (onlineMode) return;
-                player2Ready = true;
-                isPlayer2Bot = false;
-                const changed = clampExtraBotsForPlayers();
-                if (changed && !isGameRunning && !isGamePaused) recreateMatch();
-                checkBothReady();
-            });
-
-            readyBotP2Button.addEventListener('click', () => {
-                if (onlineMode) return;
-                player2Ready = true;
-                isPlayer2Bot = true;
-                const changed = clampExtraBotsForPlayers();
-                if (changed && !isGameRunning && !isGamePaused) recreateMatch();
-                checkBothReady();
-            });
 
             if (readyOnlineButton) {
                 readyOnlineButton.addEventListener('click', () => {
@@ -1384,8 +1101,6 @@
                 });
             }
             
-            resumeButton.addEventListener('click', resumeGame);
-            quitButton.addEventListener('click', quitGame);
             if (rematchButton) {
                 rematchButton.addEventListener('click', () => {
                     if (performance.now() < victoryReadyAtMs) return;
@@ -1427,7 +1142,6 @@
                     setOnlineUiEnabled(true);
                     setOnlineStatus('Connected. Waiting for assignment…');
                     showMessageBox('start', 'Online: click "Ready" when you are set.');
-                    applyOnlineUiVisibility();
                     setOnlineControlsEnabled();
                     applyObserverUi();
                     wsSend({ type: 'profile', name: playerName, color: selectedColor, observer: isObserver });
@@ -1541,12 +1255,6 @@
                         applyOnlineConfig(data.config);
                         applyObserverUi();
 
-                        // Online mode: all connected users are humans.
-                        isPlayer1Bot = false;
-                        isPlayer2Bot = false;
-                        player1Ready = true;
-                        player2Ready = true;
-
                         recreateMatch();
                         startOnlineGame();
                         return;
@@ -1621,9 +1329,8 @@
                         onlineStarted = false;
                         setOnlineUiEnabled(false);
                         setOnlineControlsEnabled();
-                        applyOnlineUiVisibility();
                         applyObserverUi();
-                        showMessageBox('start', 'Online room is full. Use local play for now.');
+                        showMessageBox('start', 'Online room is full.');
                         return;
                     }
                 });
@@ -1636,7 +1343,6 @@
                     onlinePlayerColors = null;
                     setOnlineUiEnabled(false);
                     setOnlineControlsEnabled();
-                    applyOnlineUiVisibility();
                     applyObserverUi();
                     showMessageBox('start', 'Disconnected from online server.');
                 });

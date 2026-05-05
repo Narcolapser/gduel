@@ -104,26 +104,17 @@ export function createMatch({
     shipIds.push(shipId);
   }
 
-  // Keep legacy shape for existing codepaths.
-  const ship1Id = shipIds[0] ?? null;
-  const ship2Id = shipIds[1] ?? null;
-
-  return { world, planetId, shipIds, ship1Id, ship2Id, mapId: map.id, playerOrder: order };
+  return { world, planetId, shipIds, mapId: map.id, playerOrder: order };
 }
 
 export function setBotEnabled(world, shipId, enabled) {
   world.stores.bot.set(shipId, { enabled: Boolean(enabled) });
 }
 
-export function resetMatch(world, { planetId, ship1Id, ship2Id }) {
+export function resetMatch(world, { planetId, shipIds }) {
   resetScores(world);
   resetStats(world);
-  if (Array.isArray(arguments[1]?.shipIds) && arguments[1].shipIds.length > 0) {
-    for (const sid of arguments[1].shipIds) respawnShip(world, sid, planetId, 0);
-  } else {
-    respawnShip(world, ship1Id, planetId, 0);
-    respawnShip(world, ship2Id, planetId, 0);
-  }
+  for (const sid of shipIds || []) respawnShip(world, sid, planetId, 0);
 
   world.resources.gameTimeMs = 0;
   world.resources.explosions = [];

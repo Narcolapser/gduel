@@ -86,8 +86,6 @@ export function serializeMatchState(matchState) {
   return {
     world: serializeWorld(matchState.world),
     shipIds: Array.isArray(matchState.shipIds) ? matchState.shipIds : null,
-    ship1Id: matchState.ship1Id ?? null,
-    ship2Id: matchState.ship2Id ?? null,
     planetId: matchState.planetId ?? null,
     mapId: matchState.mapId ?? null,
     playerOrder: matchState.playerOrder ?? null,
@@ -98,8 +96,6 @@ export function applyMatchState(matchState, snapshot) {
   if (!snapshot || !snapshot.world) return false;
   if (!applyWorldState(matchState.world, snapshot.world)) return false;
   matchState.shipIds = Array.isArray(snapshot.shipIds) ? snapshot.shipIds : matchState.shipIds;
-  matchState.ship1Id = snapshot.ship1Id ?? matchState.ship1Id;
-  matchState.ship2Id = snapshot.ship2Id ?? matchState.ship2Id;
   matchState.planetId = snapshot.planetId ?? matchState.planetId;
   matchState.mapId = snapshot.mapId ?? matchState.mapId;
   matchState.playerOrder = snapshot.playerOrder ?? matchState.playerOrder;
