@@ -15,22 +15,22 @@ TICK_S = TICK_MS / 1000
 MAX_PLAYERS = 8
 ROOM_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{6,16}$")
 COLOR_PALETTE = [
-	"#00d9ff",
-	"#ff6b35",
-	"#ffd166",
-	"#06d6a0",
-	"#8ecae6",
-	"#b5179e",
-	"#f72585",
-	"#3a86ff",
-	"#8338ec",
-	"#ffbe0b",
-	"#fb5607",
+	"#00f5ff",
+	"#ff3b30",
+	"#34ff00",
+	"#ffd60a",
+	"#7b2cff",
+	"#ff9500",
+	"#00d4ff",
 	"#ff006e",
-	"#3a0ca3",
-	"#4cc9f0",
-	"#2ec4b6",
-	"#a7c957",
+	"#1e90ff",
+	"#a3ff12",
+	"#ff66cc",
+	"#00ffb3",
+	"#c77d00",
+	"#5e60ce",
+	"#9ef01a",
+	"#ffffff",
 ]
 
 

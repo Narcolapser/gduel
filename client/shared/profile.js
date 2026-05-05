@@ -1,20 +1,20 @@
 export const COLOR_PALETTE = [
-  '#00F5FF',
-  '#FF3B30',
-  '#34FF00',
-  '#FFD60A',
-  '#7B2CFF',
-  '#FF9500',
-  '#00D4FF',
-  '#FF006E',
-  '#1E90FF',
-  '#A3FF12',
-  '#FF66CC',
-  '#00FFB3',
-  '#C77D00',
-  '#5E60CE',
-  '#9EF01A',
-  '#FFFFFF',
+  '#00f5ff',
+  '#ff3b30',
+  '#34ff00',
+  '#ffd60a',
+  '#7b2cff',
+  '#ff9500',
+  '#00d4ff',
+  '#ff006e',
+  '#1e90ff',
+  '#a3ff12',
+  '#ff66cc',
+  '#00ffb3',
+  '#c77d00',
+  '#5e60ce',
+  '#9ef01a',
+  '#ffffff',
 ];
 
 const STORAGE_KEYS = {
@@ -35,13 +35,13 @@ function normalizeName(name, fallbackName) {
 }
 
 export function isPaletteColor(color) {
-  return typeof color === 'string' && COLOR_PALETTE.includes(color);
+  return typeof color === 'string' && COLOR_PALETTE.includes(color.toLowerCase());
 }
 
 function normalizeColor(color, fallbackColor) {
   const resolvedFallback = resolveValue(null, fallbackColor) ?? COLOR_PALETTE[0];
-  if (isPaletteColor(color)) return color;
-  if (isPaletteColor(resolvedFallback)) return resolvedFallback;
+  if (isPaletteColor(color)) return color.toLowerCase();
+  if (isPaletteColor(resolvedFallback)) return resolvedFallback.toLowerCase();
   return COLOR_PALETTE[0];
 }
 
