@@ -70,6 +70,11 @@ export function respawnShip(world, shipId, planetId, invulnerableMs = SHIP.invul
   const well = world.stores.gravityWell.get(planetId);
   const ship = world.stores.ship.get(shipId);
 
+  // Respawning always supersedes any pending scheduled respawn - clear it so
+  // a stale timer (e.g. one carried over from before a match reset) can't
+  // leave this ship hidden/frozen in the next match.
+  world.stores.respawnAtMs.delete(shipId);
+
   const distance = world.resources.spawnDistance ?? SHIP.initialDistance;
   const multRaw = Number(world.stores.gravityMultiplier.get(shipId) ?? GRAVITY_MULTIPLIERS.ship ?? 1);
   const mult = Number.isFinite(multRaw) ? Math.max(0, multRaw) : 1;
