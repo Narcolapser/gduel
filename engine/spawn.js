@@ -70,6 +70,11 @@ export function respawnShip(world, shipId, planetId, invulnerableMs = SHIP.invul
   const well = world.stores.gravityWell.get(planetId);
   const ship = world.stores.ship.get(shipId);
 
+  // Respawning always supersedes any pending scheduled respawn - clear it so
+  // a stale timer (e.g. one carried over from before a match reset) can't
+  // leave this ship hidden/frozen in the next match.
+  world.stores.respawnAtMs.delete(shipId);
+
   const distance = world.resources.spawnDistance ?? SHIP.initialDistance;
   const multRaw = Number(world.stores.gravityMultiplier.get(shipId) ?? GRAVITY_MULTIPLIERS.ship ?? 1);
   const mult = Number.isFinite(multRaw) ? Math.max(0, multRaw) : 1;
@@ -164,9 +169,9 @@ export function canFire(world, shipId) {
   return active < ship.maxMissiles;
 }
 
-export function burnFuel(world, shipId, dtFactor) {
+export function burnFuel(world, shipId, dtFactor, fuelMultiplier = 1) {
   const fuel = world.stores.fuel.get(shipId);
   if (!fuel || fuel.value <= 0) return false;
-  fuel.value = Math.max(0, fuel.value - FUEL_PER_FRAME * dtFactor);
+  fuel.value = Math.max(0, fuel.value - FUEL_PER_FRAME * dtFactor * fuelMultiplier);
   return fuel.value > 0;
 }

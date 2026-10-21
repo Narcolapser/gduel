@@ -82,13 +82,18 @@ function applyPlayerAndBotInput(world, keys, justPressed, dtFactor) {
     const t = world.stores.transform.get(shipId);
     const v = world.stores.velocity.get(shipId);
 
-    if (keys[input.left]) t.angle -= ship.rotationSpeed * dtFactor;
-    if (keys[input.right]) t.angle += ship.rotationSpeed * dtFactor;
+    const isTurbo = input.turbo && keys[input.turbo];
+    const rotSpeed = isTurbo ? SHIP.turboRotationSpeed : ship.rotationSpeed;
+    const thrPow = isTurbo ? SHIP.turboThrustPower : ship.thrustPower;
+
+    if (keys[input.left]) t.angle -= rotSpeed * dtFactor;
+    if (keys[input.right]) t.angle += rotSpeed * dtFactor;
 
     if (keys[input.thrust]) {
-      if (burnFuel(world, shipId, dtFactor)) {
-        v.x += ship.thrustPower * Math.cos(t.angle) * dtFactor;
-        v.y += ship.thrustPower * Math.sin(t.angle) * dtFactor;
+      const fuelMult = isTurbo ? SHIP.turboFuelMultiplier : 1;
+      if (burnFuel(world, shipId, dtFactor, fuelMult)) {
+        v.x += thrPow * Math.cos(t.angle) * dtFactor;
+        v.y += thrPow * Math.sin(t.angle) * dtFactor;
         ship.thrusted = true;
       }
     }
@@ -287,14 +292,8 @@ function borderSystem(world, { borderMode, planetId }) {
     if (!(hitLeft || hitRight || hitTop || hitBottom)) continue;
 
     if (borderMode === 'concrete') {
-      if (scheduleRespawnIfNeeded(world, shipId, nowMs)) {
-        markExplosion(world, t.x, t.y, ship.color);
-        if (world.resources.missilesDieWithShip) {
-          killMissilesOwnedByShip(world, shipId, { explode: true });
-        }
-        v.x = 0;
-        v.y = 0;
-      }
+      v.x = 0;
+      v.y = 0;
       continue;
     }
 

@@ -1,34 +1,49 @@
 import { MAX_FUEL_SECONDS, TOTAL_FUEL_LINES } from './constants.js';
 
+// Pip-style layouts for showing 1-9 missiles as icons instead of digits.
+// Each entry is the list of icon counts per row, top to bottom.
+const AMMO_ICON_LAYOUTS = {
+  1: [1],
+  2: [1, 1],
+  3: [1, 1, 1],
+  4: [2, 2],
+  5: [1, 2, 2],
+  6: [2, 2, 2],
+  7: [2, 3, 2],
+  8: [3, 2, 3],
+  9: [3, 3, 3],
+};
+
 function updateAmmoDisplay(document, containerId, remaining, total) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
   container.innerHTML = '';
 
-  // For larger counts, avoid creating lots of DOM nodes.
-  if (total > 3) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'ammo-count';
+  const count = Math.max(0, Math.min(9, Math.round(remaining)));
+  if (count === 0) return;
 
-    const remainingEl = document.createElement('div');
-    remainingEl.className = 'ammo-count-line';
-    remainingEl.textContent = String(Math.max(0, remaining));
-
-    const totalEl = document.createElement('div');
-    totalEl.className = 'ammo-count-line';
-    totalEl.textContent = String(Math.max(0, total));
-
-    wrapper.appendChild(remainingEl);
-    wrapper.appendChild(totalEl);
-    container.appendChild(wrapper);
+  // 1-3: single column of full-size icons (unchanged from before).
+  if (count <= 3) {
+    for (let i = 0; i < count; i++) {
+      const missileDiv = document.createElement('div');
+      missileDiv.className = 'missile-icon';
+      container.appendChild(missileDiv);
+    }
     return;
   }
 
-  for (let i = 0; i < Math.max(0, remaining); i++) {
-    const missileDiv = document.createElement('div');
-    missileDiv.className = 'missile-icon';
-    container.appendChild(missileDiv);
+  // 4-9: compact grid, arranged per AMMO_ICON_LAYOUTS.
+  const rows = AMMO_ICON_LAYOUTS[count];
+  for (const rowCount of rows) {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'missile-icon-row';
+    for (let i = 0; i < rowCount; i++) {
+      const missileDiv = document.createElement('div');
+      missileDiv.className = 'missile-icon-sm';
+      rowDiv.appendChild(missileDiv);
+    }
+    container.appendChild(rowDiv);
   }
 }
 

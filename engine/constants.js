@@ -11,8 +11,11 @@ export const NO_FUEL_TIMEOUT_MS = 30_000;
 export const SHIP = {
   width: 10,
   height: 20,
-  rotationSpeed: 0.025,
-  thrustPower: 0.002,
+  rotationSpeed: 0.035,
+  thrustPower: 0.004,
+  turboRotationSpeed: 0.05,
+  turboThrustPower: 0.008,
+  turboFuelMultiplier: 4,
   maxMissiles: 3,
   initialDistance: 100,
   respawnDelayMs: 3000,

@@ -85,6 +85,33 @@
             white-space: pre-wrap;
         }
 
+        #gameOverHeading {
+            display: none;
+            font-size: clamp(1.6rem, 5vw, 2.6rem);
+            color: #ff2d55;
+            text-shadow: 0 0 8px #ff2d55, 0 0 20px #ff2d55, 0 0 40px #ff2d55;
+            letter-spacing: 0.05em;
+            margin-bottom: 5px;
+        }
+
+        .game-over-score {
+            display: none;
+            justify-content: center;
+            align-items: baseline;
+            gap: 12px;
+            font-size: clamp(1.4rem, 4vw, 2.2rem);
+        }
+
+        .game-over-score-sep {
+            color: #ffffff;
+        }
+
+        .game-over-button-container {
+            display: none;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
         .menu-options {
             display: flex;
             flex-direction: column;
@@ -171,16 +198,16 @@
         }
 
         .ammo-display {
-            width: 30px;
-            height: 80px;
+            width: 34px;
+            min-height: 80px;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
-            padding: 10px 5px;
+            padding: 8px 4px;
             border-radius: 5px;
             background-color: rgba(0, 0, 0, 0.4);
             box-shadow: inset 0 0 10px rgba(255, 255, 2.5, 0.2);
-            gap: 10px;
+            gap: 6px;
             border-style: solid;
             border-width: 2px;
         }
@@ -193,31 +220,25 @@
         .missile-icons {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
             align-items: center;
         }
 
-        .ammo-count {
+        .missile-icon-row {
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: space-between;
+            flex-direction: row;
+            gap: 3px;
+            justify-content: center;
             width: 100%;
-            height: 100%;
         }
 
-        .ammo-count-line {
-            font-size: 0.9rem;
-            line-height: 1;
-            color: #ffffff;
-            text-shadow: 0 0 5px #ffffff;
-        }
         .missile-icon {
             width: 10px;
             height: 20px;
             background-color: #e0e0e0;
             position: relative;
             border-radius: 2px;
+            flex-shrink: 0;
         }
         .missile-icon::before {
             content: '';
@@ -230,6 +251,27 @@
             border-left: 5px solid transparent;
             border-right: 5px solid transparent;
             border-bottom: 5px solid #e0e0e0;
+        }
+
+        .missile-icon-sm {
+            width: 6px;
+            height: 12px;
+            background-color: #e0e0e0;
+            position: relative;
+            border-radius: 1px;
+            flex-shrink: 0;
+        }
+        .missile-icon-sm::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 3px solid transparent;
+            border-right: 3px solid transparent;
+            border-bottom: 3px solid #e0e0e0;
         }
 
         .score-display {
@@ -328,7 +370,9 @@
         <div id="gameContainer">
             <canvas id="gameCanvas"></canvas>
             <div id="messageBox">
+                <div id="gameOverHeading">Game Over!</div>
                 <div id="messageText">Welcome!</div>
+                <div id="gameOverScore" class="game-over-score"></div>
                 <div id="menuOptions" class="menu-options">
                     <div class="menu-option">
                         <div class="menu-option-label">Game Speed</div>
@@ -347,14 +391,15 @@
                         </div>
                     </div>
 
+                    <div id="extraMenuOptions">
                     <div class="menu-option">
                         <div class="menu-option-label">Border</div>
                         <div class="menu-option-controls">
                             <select id="borderModeSelect" class="menu-number" aria-label="Border mode">
-                                <option value="outerSpace">outer space</option>
-                                <option value="concrete">concrete</option>
-                                <option value="rubber">rubber</option>
-                                <option value="wrap">wrap</option>
+                                <option value="outerSpace">Outer Space</option>
+                                <option value="concrete">Sponge</option>
+                                <option value="rubber">Rubber</option>
+                                <option value="wrap">Wrap</option>
                             </select>
                         </div>
                     </div>
@@ -363,9 +408,9 @@
                         <div class="menu-option-label">Map</div>
                         <div class="menu-option-controls">
                             <select id="mapSelect" class="menu-number" aria-label="Map">
-                                <option value="classic">classic</option>
-                                <option value="earth">earth</option>
-                                <option value="pluto">pluto</option>
+                                <option value="classic">Classic</option>
+                                <option value="earth">Earth</option>
+                                <option value="pluto">Pluto</option>
                             </select>
                         </div>
                     </div>
@@ -378,6 +423,8 @@
                                 class="menu-number"
                                 type="number"
                                 step="1"
+                                min="0"
+                                max="9"
                                 value="3"
                                 aria-label="Max shots"
                             />
@@ -392,6 +439,8 @@
                                 class="menu-number"
                                 type="number"
                                 step="1"
+                                min="1"
+                                max="9"
                                 value="5"
                                 aria-label="Objective score"
                             />
@@ -399,10 +448,11 @@
                     </div>
 
                     <div class="menu-option">
-                        <div class="menu-option-label">Missiles die with ship</div>
+                        <div class="menu-option-label">Missiles Die With Ship</div>
                         <div class="menu-option-controls">
-                            <input id="missilesDieWithShipCheckbox" type="checkbox" aria-label="Missiles die with ship" />
+                            <input id="missilesDieWithShipCheckbox" type="checkbox" aria-label="Missiles die with ship" checked />
                         </div>
+                    </div>
                     </div>
                 </div>
                 <div id="ready-button-container" class="ready-button-container">
@@ -421,6 +471,9 @@
                     <button id="resumeButton" class="action-button">Resume</button>
                     <button id="quitButton" class="action-button">Quit</button>
                 </div>
+                <div id="gameOverButtonContainer" class="game-over-button-container">
+                    <button id="continueButton" class="action-button">Continue</button>
+                </div>
             </div>
         </div>
         <div id="player2-ui" class="player-ui">
@@ -432,516 +485,14 @@
         </div>
     </div>
     <div class="instructions">
-        Player 1 (Green): W, A, D Keys to move, S to shoot.
+        Player 1 (Green): W, A, D Keys to move, S to shoot, Left Shift for turbo.
         <br>
-        Player 2 (Red): Arrow Keys to move, Down Arrow to shoot.
+        Player 2 (Red): Arrow Keys to move, Down Arrow to shoot, Right Shift for turbo.
         <br>
         Press Y to pause/resume. Press N to quit.
     </div>
 
-    <script type="module">
-        import { createMatch, resetMatch, resizeMatch, setBotEnabled } from './engine/game.js';
-        import { getUiSnapshot, stepWorld } from './engine/step.js';
-        import { updateUi } from './engine/ui.js';
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const canvas = document.getElementById('gameCanvas');
-            const ctx = canvas.getContext('2d');
-            const messageBox = document.getElementById('messageBox');
-            const messageText = document.getElementById('messageText');
-            const readyP1Button = document.getElementById('readyP1Button');
-            const readyBotP1Button = document.getElementById('readyBotP1Button');
-            const readyP2Button = document.getElementById('readyP2Button');
-            const readyBotP2Button = document.getElementById('readyBotP2Button');
-            const resumeButton = document.getElementById('resumeButton');
-            const quitButton = document.getElementById('quitButton');
-            const readyButtonContainer = document.getElementById('ready-button-container');
-            const pauseButtonContainer = document.getElementById('pause-button-container');
-            const scoreP1 = document.getElementById('score-p1');
-            const scoreP2 = document.getElementById('score-p2');
-            const gameContainer = document.getElementById('gameContainer');
-            const gameSpeedSlider = document.getElementById('gameSpeedSlider');
-            const gameSpeedValue = document.getElementById('gameSpeedValue');
-            const borderModeSelect = document.getElementById('borderModeSelect');
-            const maxShotsInput = document.getElementById('maxShotsInput');
-            const objectiveScoreInput = document.getElementById('objectiveScoreInput');
-            const missilesDieWithShipCheckbox = document.getElementById('missilesDieWithShipCheckbox');
-            const mapSelect = document.getElementById('mapSelect');
-
-            let isGameRunning = false;
-            let isGamePaused = false;
-            let animationFrameId;
-
-            let player1Ready = false;
-            let player2Ready = false;
-            let isPlayer1Bot = false;
-            let isPlayer2Bot = false;
-
-            let match = null;
-            let keys = {};
-            let justPressed = new Set();
-            let lastFrameMs = null;
-
-            let gameSpeed = 1;
-            let maxShots = 3;
-            let borderMode = 'outerSpace';
-            let objectiveScore = 5;
-            let missilesDieWithShip = false;
-            let mapId = 'classic';
-
-            function clamp(n, min, max) {
-                return Math.max(min, Math.min(max, n));
-            }
-
-            function formatSpeed(n) {
-                // Keep display stable: 1 decimal plus trailing 'x'.
-                return `${n.toFixed(1)}x`;
-            }
-
-            function setGameSpeed(speed) {
-                gameSpeed = clamp(Number(speed) || 1, 0.5, 4);
-                if (gameSpeedSlider) gameSpeedSlider.value = String(gameSpeed);
-                if (gameSpeedValue) gameSpeedValue.textContent = formatSpeed(gameSpeed);
-                try {
-                    localStorage.setItem('gduel.gameSpeed', String(gameSpeed));
-                } catch (_) {
-                    // Ignore storage failures (privacy mode, etc.)
-                }
-            }
-
-            function borderColorFor(mode) {
-                if (mode === 'concrete') return 'darkgray';
-                if (mode === 'rubber') return 'hotpink';
-                if (mode === 'wrap') return 'yellow';
-                return 'white';
-            }
-
-            function applyBorderColor() {
-                if (!gameContainer) return;
-                gameContainer.style.borderColor = borderColorFor(borderMode);
-            }
-
-            function setBorderMode(mode) {
-                borderMode = String(mode || 'outerSpace');
-                if (borderModeSelect) borderModeSelect.value = borderMode;
-                applyBorderColor();
-                try {
-                    localStorage.setItem('gduel.borderMode', borderMode);
-                } catch (_) {
-                    // Ignore storage failures
-                }
-            }
-
-            function setMap(id) {
-                mapId = String(id || 'classic');
-                if (mapSelect) mapSelect.value = mapId;
-                try {
-                    localStorage.setItem('gduel.mapId', mapId);
-                } catch (_) {
-                    // Ignore storage failures
-                }
-
-                // Recreate the match only when not actively running.
-                if (!isGameRunning && !isGamePaused) {
-                    recreateMatch();
-                    player1Ready = false;
-                    player2Ready = false;
-                    isPlayer1Bot = false;
-                    isPlayer2Bot = false;
-                    showMessageBox('start', 'Click "Ready" to Begin');
-                }
-            }
-
-            function parseMaxShots(value) {
-                // No upper bound; keep it integer-ish.
-                const n = Number(value);
-                if (!Number.isFinite(n)) return 3;
-                return Math.max(0, Math.floor(n));
-            }
-
-            function setMaxShots(value) {
-                maxShots = parseMaxShots(value);
-                if (maxShotsInput) maxShotsInput.value = String(maxShots);
-                try {
-                    localStorage.setItem('gduel.maxShots', String(maxShots));
-                } catch (_) {
-                    // Ignore storage failures
-                }
-            }
-
-            function applyMaxShotsToMatch() {
-                if (!match) return;
-                const ship1 = match.world.stores.ship.get(match.ship1Id);
-                const ship2 = match.world.stores.ship.get(match.ship2Id);
-                if (ship1) ship1.maxMissiles = maxShots;
-                if (ship2) ship2.maxMissiles = maxShots;
-            }
-
-            function setMissilesDieWithShip(enabled) {
-                missilesDieWithShip = Boolean(enabled);
-                if (missilesDieWithShipCheckbox) missilesDieWithShipCheckbox.checked = missilesDieWithShip;
-                if (match) match.world.resources.missilesDieWithShip = missilesDieWithShip;
-                try {
-                    localStorage.setItem('gduel.missilesDieWithShip', missilesDieWithShip ? '1' : '0');
-                } catch (_) {
-                    // Ignore storage failures
-                }
-            }
-
-            function parseObjectiveScore(value) {
-                const n = Number(value);
-                if (!Number.isFinite(n)) return 5;
-                // No upper bound; keep it a sensible positive integer.
-                return Math.max(1, Math.floor(n));
-            }
-
-            function setObjectiveScore(value) {
-                objectiveScore = parseObjectiveScore(value);
-                if (objectiveScoreInput) objectiveScoreInput.value = String(objectiveScore);
-                try {
-                    localStorage.setItem('gduel.objectiveScore', String(objectiveScore));
-                } catch (_) {
-                    // Ignore storage failures
-                }
-            }
-
-            // Initialize from storage.
-            try {
-                const saved = localStorage.getItem('gduel.gameSpeed');
-                if (saved != null) setGameSpeed(parseFloat(saved));
-                else setGameSpeed(1);
-            } catch (_) {
-                setGameSpeed(1);
-            }
-
-            try {
-                const savedBorder = localStorage.getItem('gduel.borderMode');
-                if (savedBorder != null) setBorderMode(savedBorder);
-                else setBorderMode('outerSpace');
-            } catch (_) {
-                setBorderMode('outerSpace');
-            }
-
-            try {
-                const savedMap = localStorage.getItem('gduel.mapId');
-                if (savedMap != null) setMap(savedMap);
-                else setMap('classic');
-            } catch (_) {
-                setMap('classic');
-            }
-
-            try {
-                const savedShots = localStorage.getItem('gduel.maxShots');
-                if (savedShots != null) setMaxShots(savedShots);
-                else setMaxShots(3);
-            } catch (_) {
-                setMaxShots(3);
-            }
-
-            try {
-                const savedObjective = localStorage.getItem('gduel.objectiveScore');
-                if (savedObjective != null) setObjectiveScore(savedObjective);
-                else setObjectiveScore(5);
-            } catch (_) {
-                setObjectiveScore(5);
-            }
-
-            try {
-                const savedMissilesDie = localStorage.getItem('gduel.missilesDieWithShip');
-                if (savedMissilesDie != null) setMissilesDieWithShip(savedMissilesDie !== '0');
-                else setMissilesDieWithShip(false);
-            } catch (_) {
-                setMissilesDieWithShip(false);
-            }
-
-            if (gameSpeedSlider) {
-                gameSpeedSlider.addEventListener('input', (e) => {
-                    setGameSpeed(e.target.value);
-                });
-            }
-
-            if (borderModeSelect) {
-                borderModeSelect.addEventListener('change', (e) => {
-                    setBorderMode(e.target.value);
-                });
-            }
-
-            if (mapSelect) {
-                mapSelect.addEventListener('change', (e) => {
-                    // Only allow changing map from the main menu / between rounds.
-                    if (isGameRunning || isGamePaused) return;
-                    setMap(e.target.value);
-                });
-            }
-
-            if (maxShotsInput) {
-                maxShotsInput.addEventListener('input', (e) => {
-                    setMaxShots(e.target.value);
-                    applyMaxShotsToMatch();
-                    if (match) updateUi(document, getUiSnapshot(match.world));
-                });
-            }
-
-            if (objectiveScoreInput) {
-                objectiveScoreInput.addEventListener('input', (e) => {
-                    setObjectiveScore(e.target.value);
-                });
-            }
-
-            if (missilesDieWithShipCheckbox) {
-                missilesDieWithShipCheckbox.addEventListener('change', (e) => {
-                    setMissilesDieWithShip(e.target.checked);
-                });
-            }
-            
-            document.addEventListener('keydown', (e) => {
-                const k = e.key.toLowerCase();
-
-                if (isGameRunning && !isGamePaused) {
-                    if (k === 'y') {
-                        pauseGame();
-                        return;
-                    }
-
-                    if (!keys[k]) {
-                        justPressed.add(k);
-                    }
-                    keys[k] = true;
-                } else if (isGamePaused) {
-                    if (k === 'y') {
-                        resumeGame();
-                    }
-                    if (k === 'n') {
-                        quitGame();
-                    }
-                }
-            });
-            document.addEventListener('keyup', (e) => {
-                keys[e.key.toLowerCase()] = false;
-            });
-
-            function resetGame() {
-                if (!match) return;
-                applyMaxShotsToMatch();
-                resetMatch(match.world, match);
-                lastFrameMs = null;
-            }
-
-            function recreateMatch() {
-                match = createMatch({ canvas, ctx, document, maxMissiles: maxShots, mapId });
-                applyMaxShotsToMatch();
-                resetGame();
-
-                // Render a single frame for the start screen.
-                stepWorld(
-                    match.world,
-                    { keys: {}, justPressed: new Set() },
-                    {
-                        dtMs: 0,
-                        planetId: match.planetId,
-                        borderMode,
-                        winningScore: objectiveScore,
-                        missilesDieWithShip,
-                    }
-                );
-                updateUi(document, getUiSnapshot(match.world));
-            }
-
-            function endGame() {
-                isGameRunning = false;
-                cancelAnimationFrame(animationFrameId);
-                let finalMessage;
-
-                const player1Type = isPlayer1Bot ? 'Bot' : 'Human';
-                const player2Type = isPlayer2Bot ? 'Bot' : 'Human';
-
-                const snapshot = getUiSnapshot(match.world);
-                const p1 = snapshot.ships.find(s => s.playerIndex === 1);
-                const p2 = snapshot.ships.find(s => s.playerIndex === 2);
-
-                if (p1 && p1.score >= objectiveScore) {
-                    finalMessage = `Player 1 (Green, ${player1Type}) wins the match with ${p1.score} points!`;
-                } else if (p2 && p2.score >= objectiveScore) {
-                    finalMessage = `Player 2 (Red, ${player2Type}) wins the match with ${p2.score} points!`;
-                }
-
-                showMessageBox('win/loss', finalMessage);
-            }
-
-            function resizeCanvas() {
-                const gameContainer = document.getElementById('gameContainer');
-                canvas.width = gameContainer.clientWidth;
-                canvas.height = gameContainer.clientHeight;
-
-                if (!match) {
-                    match = createMatch({ canvas, ctx, document, maxMissiles: maxShots, mapId });
-                } else {
-                    resizeMatch(match.world, match, { width: canvas.width, height: canvas.height });
-                }
-
-                applyMaxShotsToMatch();
-
-                resetGame();
-
-                // Render a single frame for the start screen.
-                stepWorld(
-                    match.world,
-                    { keys: {}, justPressed: new Set() },
-                    {
-                        dtMs: 0,
-                        planetId: match.planetId,
-                        borderMode,
-                        winningScore: objectiveScore,
-                        missilesDieWithShip,
-                    }
-                );
-                updateUi(document, getUiSnapshot(match.world));
-            }
-
-            function showMessageBox(type, message) {
-                messageText.textContent = message;
-                messageBox.style.display = 'flex';
-                
-                if (type === 'start') {
-                    readyButtonContainer.style.display = 'flex';
-                    pauseButtonContainer.style.display = 'none';
-                } else if (type === 'pause') {
-                    readyButtonContainer.style.display = 'none';
-                    pauseButtonContainer.style.display = 'flex';
-                } else if (type === 'win/loss') {
-                    readyButtonContainer.style.display = 'flex';
-                    pauseButtonContainer.style.display = 'none';
-                }
-            }
-            
-            function quitGame() {
-                isGameRunning = false;
-                isGamePaused = false;
-                cancelAnimationFrame(animationFrameId);
-                player1Ready = false;
-                player2Ready = false;
-                isPlayer1Bot = false;
-                isPlayer2Bot = false;
-
-                resetGame();
-                stepWorld(
-                    match.world,
-                    { keys: {}, justPressed: new Set() },
-                    {
-                        dtMs: 0,
-                        planetId: match.planetId,
-                        borderMode,
-                        winningScore: objectiveScore,
-                        missilesDieWithShip,
-                    }
-                );
-                updateUi(document, getUiSnapshot(match.world));
-
-                showMessageBox('start', "Welcome to Gravity Duel! Click \"Ready\" to begin.");
-            }
-            
-            function pauseGame() {
-                isGamePaused = true;
-                cancelAnimationFrame(animationFrameId);
-                showMessageBox('pause', 'Game Paused\nWould you like to resume?');
-            }
-            
-            function resumeGame() {
-                isGamePaused = false;
-                messageBox.style.display = 'none';
-                gameLoop();
-            }
-
-            function startGame() {
-                keys = {}; 
-                justPressed = new Set();
-
-                messageBox.style.display = 'none';
-                isGameRunning = true;
-                resetGame();
-                gameLoop();
-            }
-
-            function gameLoop() {
-                if (!isGameRunning || isGamePaused) return;
-
-                const now = performance.now();
-                if (lastFrameMs === null) lastFrameMs = now;
-                const dtRealMs = Math.min(50, now - lastFrameMs);
-                lastFrameMs = now;
-
-                const dtMs = dtRealMs * gameSpeed;
-                match.world.resources.gameTimeMs += dtMs;
-
-                setBotEnabled(match.world, match.ship1Id, isPlayer1Bot);
-                setBotEnabled(match.world, match.ship2Id, isPlayer2Bot);
-
-                const result = stepWorld(
-                    match.world,
-                    { keys, justPressed },
-                    {
-                        dtMs,
-                        planetId: match.planetId,
-                        borderMode,
-                        winningScore: objectiveScore,
-                        missilesDieWithShip,
-                    }
-                );
-                justPressed.clear();
-
-                updateUi(document, getUiSnapshot(match.world));
-
-                if (result.winnerShipId) {
-                    endGame();
-                    return;
-                }
-
-                animationFrameId = requestAnimationFrame(gameLoop);
-            }
-
-            resizeCanvas();
-            window.addEventListener('resize', resizeCanvas);
-
-            function checkBothReady() {
-                if (player1Ready && player2Ready) {
-                    startGame();
-                } else if (player1Ready) {
-                    showMessageBox('start', `Player 1 (${isPlayer1Bot ? 'Bot' : 'Human'}) is ready. Waiting for Player 2...`);
-                } else if (player2Ready) {
-                    showMessageBox('start', `Player 2 (${isPlayer2Bot ? 'Bot' : 'Human'}) is ready. Waiting for Player 1...`);
-                }
-            }
-
-            readyP1Button.addEventListener('click', () => {
-                player1Ready = true;
-                isPlayer1Bot = false;
-                checkBothReady();
-            });
-
-            readyBotP1Button.addEventListener('click', () => {
-                player1Ready = true;
-                isPlayer1Bot = true;
-                checkBothReady();
-            });
-
-            readyP2Button.addEventListener('click', () => {
-                player2Ready = true;
-                isPlayer2Bot = false;
-                checkBothReady();
-            });
-
-            readyBotP2Button.addEventListener('click', () => {
-                player2Ready = true;
-                isPlayer2Bot = true;
-                checkBothReady();
-            });
-            
-            resumeButton.addEventListener('click', resumeGame);
-            quitButton.addEventListener('click', quitGame);
-
-            showMessageBox('start', 'Click "Ready" to Begin');
-        });
-    </script>
+    <script src="./bundle.js"></script>
 </body>
 </html>
 

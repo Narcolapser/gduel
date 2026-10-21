@@ -20,7 +20,7 @@ function makeStores() {
     // {centerId:number, radius:number, angularSpeed:number, phase:number}
     orbit: new Map(),
 
-    playerInput: new Map(), // {thrust,left,right,fire}
+    playerInput: new Map(), // {thrust,left,right,fire,turbo}
     bot: new Map(), // {enabled:boolean}
 
     // Render tags

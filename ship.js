@@ -13,7 +13,7 @@ export function Ship(canvas, ctx, document, isPlayer1) {
         height: 20,
         angle: Math.PI,
         thrust: 0,
-        rotationSpeed: 0.025,
+        rotationSpeed: 0.035,
         velocityX: 0,
         velocityY: 0,
         color: isPlayer1 ? '#00ff00' :'#ff0000',
